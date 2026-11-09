@@ -148,7 +148,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 .case__thumbs { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(.5rem, 1vw, 1rem); margin-top: clamp(.5rem, 1vw, 1rem); }
 .case__thumbs img { width: 100%; aspect-ratio: 16 / 11; object-fit: cover; object-position: top; background: var(--plate); }
 
-.js .reveal { opacity: 0; transform: translateY(14px); transition: opacity .6s var(--ease), transform .6s var(--ease); }
+.js .reveal { opacity: 0; transform: translateY(14px); transition: opacity .4s var(--ease), transform .4s var(--ease); }
 .js .reveal.is-in { opacity: 1; transform: none; }
 
 /* Field note */
