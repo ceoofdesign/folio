@@ -1,0 +1,28 @@
+<section class="lab" id="lab" data-lab>
+  <div class="lab__text">
+    <p class="label">Field note</p>
+    <h2>One button, four languages</h2>
+    <p>Russian and German labels run longer than English. In Figma terms, a button can hug its label or keep a fixed width. Switch the language and see which one survives.</p>
+    <div class="lab__controls">
+      <div class="seg" role="group" aria-label="Language">
+        <button type="button" data-lang="en" aria-pressed="true">EN</button>
+        <button type="button" data-lang="ru" aria-pressed="false">RU</button>
+        <button type="button" data-lang="de" aria-pressed="false">DE</button>
+        <button type="button" data-lang="ja" aria-pressed="false">JA</button>
+      </div>
+      <div class="seg" role="group" aria-label="Button width">
+        <button type="button" data-width="hug" aria-pressed="false">Hug</button>
+        <button type="button" data-width="fixed" aria-pressed="true">Fixed</button>
+      </div>
+    </div>
+    <p class="lab__status" aria-live="polite"><span data-lab-count>11</span> characters. <span data-lab-state>The label fits.</span></p>
+  </div>
+  <div class="lab__stage">
+    <div class="ticket">
+      <div><span data-lab-t="from">From</span><strong data-lab-t="a">Lisbon</strong></div>
+      <div><span data-lab-t="to">To</span><strong data-lab-t="b">Porto</strong></div>
+      <div><span data-lab-t="date">Date</span><strong data-lab-t="d">14 Mar</strong></div>
+      <button type="button" class="ticket__go is-fixed" data-lab-button><span data-lab-t="go">Show trains</span></button>
+    </div>
+  </div>
+</section>

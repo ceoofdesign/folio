@@ -1,0 +1,12 @@
+{% assign profile = site.data.profile %}
+<header class="top">
+  <a class="top__name" href="{{ '/' | relative_url }}">{{ profile.name }}</a>
+  <p class="top__clock"><span data-clock data-tz="{{ profile.timezone }}">{{ profile.city }}</span></p>
+  <nav class="top__nav" aria-label="Main">
+    <a href="{{ '/#work' | relative_url }}">Work</a>
+    <a href="{{ '/#about' | relative_url }}">About</a>
+    <a href="mailto:{{ profile.email }}">Email</a>
+    <button type="button" class="top__theme" data-theme-toggle aria-label="Switch colour theme"><span aria-hidden="true"></span></button>
+  </nav>
+  <div class="top__progress" aria-hidden="true"></div>
+</header>

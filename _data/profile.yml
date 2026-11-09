@@ -1,0 +1,34 @@
+# Всё, что про вас: имя, первая фраза, контакты и блок About.
+name: "Yar Luchkin"
+kana: "ヤル・ルチキン"
+role: "Product designer"
+city: "Belgrade"
+timezone: "Europe/Belgrade"
+
+headline: "I design marketplaces and travel products used by millions of people, and the design systems that keep them consistent."
+
+# Короткие факты под первой фразой.
+facts:
+  - label: "Now"
+    value: "Playerok, 4M+ users"
+  - label: "Based"
+    value: "Belgrade, Serbia"
+  - label: "Focus"
+    value: "Design systems, booking, marketplaces"
+
+email: "yar.luchkin@protonmail.com"
+linkedin: "https://www.linkedin.com/in/yar-luchkin/"
+telegram: "https://t.me/ceoofdesign"
+# Когда появится файл резюме: cv: "assets/cv.pdf"
+
+about:
+  - "Five years in product design, before that PR and localization for game launches. My background is in advertising and intercultural communication."
+  - "Most products I’ve worked on are used by people from many countries, often in a language that isn’t their own. I’ve studied Japanese since 2018 and work in English."
+
+about_facts:
+  - label: "Languages"
+    value: "English, professional. Japanese, N4–N3 and improving. Russian, native."
+  - label: "Japan"
+    value: "Design system workshops for Galary Design, Tokyo."
+  - label: "Education"
+    value: "BA in Advertising and PR, HSE University, Moscow."

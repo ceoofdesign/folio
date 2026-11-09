@@ -1,0 +1,22 @@
+title: "Yar Luchkin, product designer"
+description: "Product designer in Belgrade. Marketplaces, travel products and the design systems behind them."
+url: "https://ceoofdesign.github.io"
+baseurl: "/folio"
+markdown: kramdown
+timezone: Europe/Belgrade
+
+collections:
+  work:
+    output: true
+    permalink: /work/:name/
+
+defaults:
+  - scope:
+      path: ""
+      type: work
+    values:
+      layout: case
+
+exclude:
+  - README.md
+  - .gitignore

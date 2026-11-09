@@ -1,0 +1,45 @@
+---
+layout: default
+---
+{% assign all = site.work | sort: "order" %}
+{% assign next = all[0] %}
+{% assign prior_was_current = false %}
+{% for c in all %}
+  {% if prior_was_current %}{% assign next = c %}{% assign prior_was_current = false %}{% endif %}
+  {% if c.url == page.url %}{% assign prior_was_current = true %}{% endif %}
+{% endfor %}
+
+<article class="cs">
+  <header class="cs__head">
+    <a class="back" href="{{ '/#work' | relative_url }}"><span aria-hidden="true">←</span> All work</a>
+    <h1>{{ page.title }}</h1>
+    <p class="cs__lede">{{ page.lede }}</p>
+    <dl class="cs__facts">
+      {% for f in page.facts %}<div><dt>{{ f[0] }}</dt><dd>{{ f[1] }}</dd></div>{% endfor %}
+    </dl>
+  </header>
+
+  <figure class="cs__cover">
+    <img src="{{ page.cover | relative_url }}" alt="{{ page.cover_alt | escape }}" fetchpriority="high" data-zoom>
+  </figure>
+
+  {% if page.outcomes %}
+  <section class="cs__outcome" aria-label="Outcome">
+    <h2 class="label">Outcome</h2>
+    <ul>
+      {% for o in page.outcomes %}<li>{{ o }}</li>{% endfor %}
+    </ul>
+    {% if page.outcome_note %}<p class="cs__note">{{ page.outcome_note }}</p>{% endif %}
+  </section>
+  {% endif %}
+
+  <div class="cs__body">
+    {{ content }}
+  </div>
+
+  <a class="next" href="{{ next.url | relative_url }}">
+    <span class="label">Next</span>
+    <span class="next__title">{{ next.title }}</span>
+    <span class="next__arrow" aria-hidden="true">→</span>
+  </a>
+</article>

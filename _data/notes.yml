@@ -1,0 +1,24 @@
+# Выступления, статьи и исследования. Новые записи добавляйте сверху.
+- type: "Workshop"
+  title: "The first steps towards your design system"
+  detail: "Galary Design, Tokyo. Hands-on Figma session, 11 participants."
+  date: "Oct 2025"
+  link: "https://www.meetup.com/galary-ux-ui-design-community/events/?type=past"
+
+- type: "Talk"
+  title: "Intro to design systems"
+  detail: "Galary Design, Tokyo. Online, in English with some Japanese, 50 sign-ups."
+  date: "Sep 2025"
+  link: "https://www.meetup.com/galary-ux-ui-design-community/events/?type=past"
+
+- type: "Post"
+  title: "When a button breaks in Russian"
+  detail: "A localization edge case in the Google Pixel screenshot tool, and three ways to design for it."
+  date: ""
+  link: "https://www.linkedin.com/in/yar-luchkin/recent-activity/all/"
+
+- type: "Research"
+  title: "Ways of the artists’ promotion in the Russian digital art market"
+  detail: "Bachelor’s research at HSE University, written in English."
+  date: "2021"
+  link: "https://www.researchgate.net/publication/358564840"
