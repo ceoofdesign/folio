@@ -45,7 +45,87 @@
   });
 
   /* 3D ring of product screens: spins slowly, follows drag and scroll, a click opens the case */
-  const orbit = $('[data-orbit]');
+  const hero = $('.hero[data-hero]');
+  const variants = ['ring', 'stack', 'city', 'physics'];
+  let variant = hero ? hero.dataset.hero : 'ring';
+  try {
+    const asked = new URLSearchParams(location.search).get('hero');
+    if (variants.includes(asked)) { variant = asked; localStorage.setItem('hero', asked); }
+    else if ($('.picker') && variants.includes(localStorage.getItem('hero'))) variant = localStorage.getItem('hero');
+  } catch (e) { /* storage blocked: use the configured variant */ }
+  $$('[data-pick]').forEach((a) => a.setAttribute('aria-current', a.dataset.pick === variant ? 'true' : 'false'));
+
+  /* Canvas games in the hero. Each one lives in its own file and loads only when chosen. */
+  const stage = $('[data-stage]');
+  if (hero && stage && variant !== 'ring') {
+    hero.classList.add('hero--game');
+    stage.hidden = false;
+    const ringEl = $('[data-orbit]');
+    if (ringEl) ringEl.hidden = true;
+    let strings = {};
+    try { strings = JSON.parse(stage.dataset.strings || '{}'); } catch (e) { /* fall back to keys */ }
+    const touch = matchMedia('(hover: none)').matches;
+    const kit = {
+      still,
+      fine,
+      touch,
+      t: (key, n) => {
+        const k = touch && strings[`${key}_touch`] ? `${key}_touch` : key;
+        return (strings[k] || key).replace('{n}', n);
+      },
+      colors: () => {
+        const cs = getComputedStyle(root);
+        const v = (name) => cs.getPropertyValue(name).trim();
+        return { paper: v('--paper'), plate: v('--plate'), ink: v('--ink'), ink2: v('--ink-2'), line: v('--line'), signal: v('--signal'), select: '#0d99ff', comp: '#9747ff', white: '#ffffff' };
+      },
+      load: (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } },
+      save: (k, val) => { try { localStorage.setItem(k, val); } catch (e) { /* not saved */ } },
+      hint: (text) => { $('[data-stage-hint]', stage).textContent = text; },
+      score: (text) => { $('[data-stage-score]', stage).textContent = text; },
+      mono: (px) => `400 ${px}px "IBM Plex Mono", ui-monospace, monospace`,
+      sans: (px, w = 400) => `${w} ${px}px Geologica, "IBM Plex Sans JP", system-ui, sans-serif`,
+      // Keeps the canvas sharp on dense screens and calls back with its size in CSS pixels
+      fit: (canvas, cb) => {
+        const ctx = canvas.getContext('2d');
+        const apply = () => {
+          const r = canvas.getBoundingClientRect();
+          const dpr = Math.min(2, devicePixelRatio || 1);
+          canvas.width = Math.round(r.width * dpr);
+          canvas.height = Math.round(r.height * dpr);
+          ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+          cb(r.width, r.height, dpr);
+        };
+        new ResizeObserver(apply).observe(canvas);
+        apply();
+        return ctx;
+      },
+      // Runs the frame callback only while the stage is on screen
+      loop: (fn) => {
+        let on = true;
+        let raf = 0;
+        let last = performance.now();
+        const tick = (now) => {
+          const dt = Math.min(48, now - last) / 16.67;
+          last = now;
+          fn(dt, now);
+          raf = on ? requestAnimationFrame(tick) : 0;
+        };
+        new IntersectionObserver(([e]) => {
+          on = e.isIntersecting;
+          if (on && !raf) { last = performance.now(); raf = requestAnimationFrame(tick); }
+        }).observe(stage);
+        raf = requestAnimationFrame(tick);
+      },
+    };
+    $('[data-stage-title]', stage).textContent = kit.t(`${variant}_title`);
+    const start = () => window.HeroGames && window.HeroGames[variant] && window.HeroGames[variant](stage, kit);
+    const script = document.createElement('script');
+    script.src = `${stage.dataset.base}hero-${variant}.js`;
+    script.onload = start;
+    document.head.append(script);
+  }
+
+  const orbit = variant === 'ring' ? $('[data-orbit]') : null;
   if (orbit) {
     const ring = $('.orbit__ring', orbit);
     const cards = $$('.orbit__card', orbit);

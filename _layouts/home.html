@@ -7,11 +7,20 @@ layout: default
 {% assign p = profile[lang] %}
 {% assign source = site.work | sort: "order" %}
 
-<section class="hero" aria-label="{{ profile.name }}, {{ p.role }}">
-  <h1>{{ p.headline }}</h1>
-  <dl class="hero__facts">
-    {% for f in p.facts %}<div><dt>{{ f.label }}</dt><dd>{{ f.value }}</dd></div>{% endfor %}
-  </dl>
+<section class="hero" aria-label="{{ profile.name }}, {{ p.role }}" data-hero="{{ site.hero | default: 'ring' }}">
+  <div class="hero__text">
+    <h1>{{ p.headline }}</h1>
+    <dl class="hero__facts">
+      {% for f in p.facts %}<div><dt>{{ f.label }}</dt><dd>{{ f.value }}</dd></div>{% endfor %}
+    </dl>
+  </div>
+  <div class="stage" data-stage data-strings="{{ t.games | jsonify | escape }}" data-base="{{ '/assets/js/' | relative_url }}" hidden>
+    <div class="stage__frame">
+      <p class="stage__tab" aria-hidden="true"><span class="stage__icon"></span><span data-stage-title></span></p>
+      <canvas class="stage__canvas" tabindex="0"></canvas>
+    </div>
+    <p class="stage__bar" aria-live="polite"><span data-stage-hint></span><span data-stage-score></span></p>
+  </div>
   <div class="orbit" data-orbit aria-label="{{ t.index }}">
     <div class="orbit__ring">
       {% assign i = 0 %}
@@ -27,6 +36,15 @@ layout: default
     <p class="orbit__caption" aria-hidden="true"><span class="orbit__no" data-cap="no"></span><span class="orbit__name" data-cap="name"></span><span class="orbit__meta" data-cap="meta"></span></p>
   </div>
 </section>
+{% if site.hero_picker %}
+<nav class="picker" aria-label="Hero variant">
+  <span class="picker__label">Hero</span>
+  <a href="?hero=ring" data-pick="ring">Ring</a>
+  <a href="?hero=stack" data-pick="stack">Stack</a>
+  <a href="?hero=city" data-pick="city">City</a>
+  <a href="?hero=physics" data-pick="physics">Physics</a>
+</nav>
+{% endif %}
 
 <section class="board" aria-label="{{ t.index }}">
   <div class="board__head" aria-hidden="true">
