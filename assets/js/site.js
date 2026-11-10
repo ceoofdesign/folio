@@ -44,60 +44,130 @@
     });
   });
 
-  /* Translation lens: the headline shows the other language inside a circle that follows the pointer */
-  const stack = $('[data-lens]');
-  if (stack && !still) {
-    root.classList.add('lens-on');
-    const s = { x: 0, y: 0, tx: 0, ty: 0, r: 0, tr: 0 };
-    let raf = 0;
-    let touched = false;
-    const radius = () => Math.max(70, Math.min(140, stack.offsetWidth * 0.14));
-    const paint = () => {
-      s.x += (s.tx - s.x) * 0.2;
-      s.y += (s.ty - s.y) * 0.2;
-      s.r += (s.tr - s.r) * 0.16;
-      stack.style.setProperty('--lx', `${s.x}px`);
-      stack.style.setProperty('--ly', `${s.y}px`);
-      stack.style.setProperty('--lr', `${Math.max(0, s.r)}px`);
-      const settled = Math.abs(s.tx - s.x) < 0.3 && Math.abs(s.ty - s.y) < 0.3 && Math.abs(s.tr - s.r) < 0.3;
-      raf = settled ? 0 : requestAnimationFrame(paint);
-    };
-    const kick = () => { if (!raf) raf = requestAnimationFrame(paint); };
-    const aim = (e, jump) => {
-      const rect = stack.getBoundingClientRect();
-      s.tx = e.clientX - rect.left;
-      s.ty = e.clientY - rect.top;
-      if (jump) { s.x = s.tx; s.y = s.ty; }
-      s.tr = radius();
-      kick();
-    };
-    stack.addEventListener('pointerenter', (e) => { touched = true; aim(e, s.r < 2); });
-    stack.addEventListener('pointermove', (e) => { touched = true; aim(e, false); });
-    stack.addEventListener('pointerdown', (e) => { touched = true; aim(e, true); });
-    const hide = () => { s.tr = 0; kick(); };
-    stack.addEventListener('pointerleave', hide);
-    stack.addEventListener('pointercancel', hide);
-    stack.addEventListener('pointerup', (e) => { if (e.pointerType !== 'mouse') setTimeout(hide, 900); });
+  /* 3D ring of product screens: spins slowly, follows drag and scroll, a click opens the case */
+  const orbit = $('[data-orbit]');
+  if (orbit) {
+    const ring = $('.orbit__ring', orbit);
+    const cards = $$('.orbit__card', orbit);
+    const cap = { no: $('[data-cap="no"]', orbit), name: $('[data-cap="name"]', orbit), meta: $('[data-cap="meta"]', orbit) };
+    const n = cards.length;
+    const step = 360 / n;
+    root.classList.add('orbit-on');
+    orbit.style.setProperty('--step', `${step}deg`);
 
-    // One slow pass on load, so the effect is discovered without instructions
-    setTimeout(() => {
-      if (touched) return;
-      const w = stack.offsetWidth;
-      const line = parseFloat(getComputedStyle($('.hero__line', stack)).lineHeight) || 60;
-      const start = performance.now();
-      const run = (now) => {
-        if (touched) return;
-        const k = Math.min(1, (now - start) / 2200);
-        const ease = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
-        s.tx = w * (0.08 + 0.6 * ease);
-        s.ty = line * (0.55 + 0.9 * ease);
-        if (k === 0) { s.x = s.tx; s.y = s.ty; }
-        s.tr = k < 0.85 ? radius() * 0.9 : 0;
-        kick();
-        if (k < 1) requestAnimationFrame(run);
-      };
-      requestAnimationFrame(run);
-    }, 1100);
+    const cruise = still ? 0 : -0.06;          // degrees per frame when left alone
+    let rot = still ? 0 : 140;                  // starts turned away and spins in
+    let vel = still ? 0 : -2.6;
+    let auto = cruise;
+    let tilt = -7;
+    let tiltTo = -7;
+    let snap = null;
+    let drag = null;
+    let front = -1;
+    let visible = true;
+    let raf = 0;
+    let last = performance.now();
+    let lastScroll = scrollY;
+
+    const layout = () => {
+      const w = cards[0].offsetWidth;
+      orbit.style.setProperty('--r', `${Math.round(w / 2 / Math.tan(Math.PI / n) + w * 0.16)}px`);
+    };
+    layout();
+    addEventListener('resize', layout);
+
+    const frame = (now) => {
+      const dt = Math.min(48, now - last) / 16.67;
+      last = now;
+      if (snap !== null) {
+        rot += (snap - rot) * Math.min(1, 0.12 * dt);
+        vel = 0;
+        if (Math.abs(snap - rot) < 0.05) { rot = snap; snap = null; }
+      } else if (!drag) {
+        vel += (auto - vel) * Math.min(1, 0.035 * dt);
+        rot += vel * dt;
+      }
+      tilt += (tiltTo - tilt) * Math.min(1, 0.08 * dt);
+      ring.style.transform = `translateZ(calc(var(--r) * -1)) rotateX(${tilt.toFixed(2)}deg) rotateY(${rot.toFixed(2)}deg)`;
+
+      let best = 0;
+      let bestCos = -2;
+      cards.forEach((card, i) => {
+        const cos = Math.cos(((i * step + rot) * Math.PI) / 180);
+        card.style.setProperty('--fade', ((1 - cos) * 0.42).toFixed(3));
+        if (cos > bestCos) { bestCos = cos; best = i; }
+      });
+      if (best !== front) {
+        front = best;
+        const card = cards[best];
+        cap.no.textContent = card.dataset.no;
+        cap.name.textContent = card.dataset.name;
+        cap.meta.textContent = card.dataset.meta;
+        cards.forEach((c, i) => c.classList.toggle('is-front', i === best));
+      }
+      raf = visible ? requestAnimationFrame(frame) : 0;
+    };
+    raf = requestAnimationFrame(frame);
+
+    new IntersectionObserver(([entry]) => {
+      visible = entry.isIntersecting;
+      if (visible && !raf) { last = performance.now(); raf = requestAnimationFrame(frame); }
+    }).observe(orbit);
+
+    // Drag with mouse, pen or finger. Vertical swipes still scroll the page.
+    orbit.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0) return;
+      drag = { x: e.clientX, rot, t: performance.now(), moved: false, id: e.pointerId };
+      snap = null;
+    });
+    addEventListener('pointermove', (e) => {
+      if (fine && !drag) {
+        const r = orbit.getBoundingClientRect();
+        if (e.clientY > r.top && e.clientY < r.bottom) {
+          const x = (e.clientX - r.left) / r.width - 0.5;
+          const y = (e.clientY - r.top) / r.height - 0.5;
+          auto = still ? 0 : cruise - x * 0.5;
+          tiltTo = -7 + y * 6;
+        } else { auto = cruise; tiltTo = -7; }
+      }
+      if (!drag || e.pointerId !== drag.id) return;
+      const dx = e.clientX - drag.x;
+      if (!drag.moved && Math.abs(dx) > 6) { drag.moved = true; orbit.classList.add('is-dragging'); orbit.setPointerCapture(e.pointerId); }
+      if (!drag.moved) return;
+      const next = drag.rot + dx * 0.22;
+      const t = performance.now();
+      vel = (next - rot) / Math.max(1, (t - drag.t) / 16.67);
+      drag.t = t;
+      rot = next;
+    });
+    const release = (e) => {
+      if (!drag || (e && e.pointerId !== drag.id)) return;
+      const moved = drag.moved;
+      drag = null;
+      orbit.classList.remove('is-dragging');
+      if (moved) {
+        vel = Math.max(-3.5, Math.min(3.5, vel));
+        orbit.addEventListener('click', (ev) => { ev.preventDefault(); ev.stopPropagation(); }, { capture: true, once: true });
+      }
+    };
+    addEventListener('pointerup', release);
+    addEventListener('pointercancel', release);
+
+    // Scrolling the page nudges the ring
+    if (!still) {
+      addEventListener('scroll', () => {
+        const d = scrollY - lastScroll;
+        lastScroll = scrollY;
+        if (visible && !drag) vel -= Math.max(-3, Math.min(3, d * 0.03));
+      }, { passive: true });
+    }
+
+    // Keyboard: the focused card turns to the front
+    cards.forEach((card, i) => card.addEventListener('focus', () => {
+      const target = -i * step;
+      snap = target + Math.round((rot - target) / 360) * 360;
+    }));
+    orbit.addEventListener('mouseleave', () => { auto = cruise; tiltTo = -7; });
   }
 
   /* Image preview that follows the cursor over index rows */

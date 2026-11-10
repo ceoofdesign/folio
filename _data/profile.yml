@@ -19,6 +19,15 @@ en:
       value: "Belgrade, Serbia"
     - label: "Focus"
       value: "Design systems, booking, marketplaces"
+  stats:
+    - value: "5 years"
+      label: "in product design, on marketplaces and travel products"
+    - value: "4M+"
+      label: "people use the marketplace I design for now"
+    - value: "2,000+"
+      label: "components in one design system for four brands"
+    - value: "1M+"
+      label: "train tickets a year go through my booking flow"
   about:
     - "Five years in product design, before that PR and localization for game launches. My background is in advertising and intercultural communication."
     - "Most products I’ve worked on are used by people from many countries, often in a language that isn’t their own. I work in English and keep improving my Japanese."
@@ -42,6 +51,15 @@ ja:
       value: "セルビア・ベオグラード"
     - label: "専門"
       value: "デザインシステム、予約フロー、マーケットプレイス"
+  stats:
+    - value: "5年"
+      label: "マーケットプレイスと旅行サービスのプロダクトデザイン"
+    - value: "400万人以上"
+      label: "現在担当しているマーケットプレイスのユーザー数"
+    - value: "2,000以上"
+      label: "4ブランド共通のデザインシステムのコンポーネント数"
+    - value: "100万枚以上"
+      label: "私が設計した予約フローで年間に販売される鉄道チケット"
   about:
     - "プロダクトデザイナーとして5年。それ以前は、ゲームのローンチに向けたPRとローカライズを担当していました。広告・PRと異文化コミュニケーションを学んでいます。"
     - "これまで手がけたプロダクトの多くは、さまざまな国の人が母語ではない言語で使うものです。仕事は英語で行い、日本語の学習を続けています。"

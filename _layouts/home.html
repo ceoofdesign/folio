@@ -5,19 +5,27 @@ layout: default
 {% assign t = site.data.i18n[lang] %}
 {% assign profile = site.data.profile %}
 {% assign p = profile[lang] %}
-{% if lang == "ja" %}{% assign other = profile.en %}{% assign other_lang = "en" %}{% else %}{% assign other = profile.ja %}{% assign other_lang = "ja" %}{% endif %}
 {% assign source = site.work | sort: "order" %}
 
 <section class="hero" aria-label="{{ profile.name }}, {{ p.role }}">
-  <div class="hero__stack" data-lens>
-    <h1 class="hero__line">{{ p.headline }}</h1>
-    <p class="hero__alt" lang="{{ other_lang }}" aria-hidden="true">{{ other.headline }}</p>
-    <span class="hero__ring" aria-hidden="true"></span>
-  </div>
-  <p class="hero__hint" aria-hidden="true"><span class="hint-fine">{{ t.lens_hint }}</span><span class="hint-touch">{{ t.lens_hint_touch }}</span></p>
+  <h1>{{ p.headline }}</h1>
   <dl class="hero__facts">
     {% for f in p.facts %}<div><dt>{{ f.label }}</dt><dd>{{ f.value }}</dd></div>{% endfor %}
   </dl>
+  <div class="orbit" data-orbit aria-label="{{ t.index }}">
+    <div class="orbit__ring">
+      {% assign i = 0 %}
+      {% for c in source %}
+      {% if lang == "ja" %}{% assign x = site.work_ja | where: "slug", c.slug | first %}{% assign url = c.url | prepend: "/ja" %}{% else %}{% assign x = c %}{% assign url = c.url %}{% endif %}
+      {% unless x %}{% assign x = c %}{% endunless %}
+      {% assign i = i | plus: 1 %}
+      <a class="orbit__card" href="{{ url | relative_url }}" style="--i: {{ i | minus: 1 }}" aria-label="{{ x.name }}: {{ x.work }}" data-no="{% if i < 10 %}0{% endif %}{{ i }}" data-name="{{ x.name | escape }}" data-meta="{{ x.work | escape }} · {{ x.scale | escape }}" draggable="false">
+        <img src="{{ c.cover | relative_url }}" alt="" draggable="false" {% if i < 4 %}fetchpriority="high"{% else %}loading="lazy"{% endif %} decoding="async">
+      </a>
+      {% endfor %}
+    </div>
+    <p class="orbit__caption" aria-hidden="true"><span class="orbit__no" data-cap="no"></span><span class="orbit__name" data-cap="name"></span><span class="orbit__meta" data-cap="meta"></span></p>
+  </div>
 </section>
 
 <section class="board" aria-label="{{ t.index }}">
@@ -116,10 +124,15 @@ layout: default
 
 <section class="about" id="about" aria-labelledby="about-title">
   <h2 class="label" id="about-title">{{ t.about_title }}</h2>
-  <div class="about__text">
-    {% for para in p.about %}<p>{{ para }}</p>{% endfor %}
+  <ul class="stats">
+    {% for s in p.stats %}<li class="stat"><span class="stat__value">{{ s.value }}</span><span class="stat__label">{{ s.label }}</span></li>{% endfor %}
+  </ul>
+  <div class="about__body">
+    <div class="about__text">
+      {% for para in p.about %}<p>{{ para }}</p>{% endfor %}
+    </div>
+    <dl class="about__facts">
+      {% for f in p.about_facts %}<div><dt>{{ f.label }}</dt><dd>{{ f.value }}</dd></div>{% endfor %}
+    </dl>
   </div>
-  <dl class="about__facts">
-    {% for f in p.about_facts %}<div><dt>{{ f.label }}</dt><dd>{{ f.value }}</dd></div>{% endfor %}
-  </dl>
 </section>

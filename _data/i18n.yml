@@ -32,8 +32,6 @@ en:
   slides: "of"
   not_found: "This train doesn’t stop here."
   back_home: "Back to all work"
-  lens_hint: "Move the cursor over the sentence to read it in Japanese"
-  lens_hint_touch: "Drag across the sentence to read it in Japanese"
 
 ja:
   skip: "本文へ移動"
@@ -68,5 +66,3 @@ ja:
   slides: "/"
   not_found: "この駅には停車しません。"
   back_home: "実績一覧へ戻る"
-  lens_hint: "文の上にカーソルを動かすと、英語で読めます"
-  lens_hint_touch: "文の上を指でなぞると、英語で読めます"

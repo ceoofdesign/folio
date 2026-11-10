@@ -27,7 +27,7 @@
   {% if lang == "ja" %}
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+JP:wght@400;500&display=swap">
   {% else %}
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+JP:wght@400&display=swap&text={{ profile.ja.headline | append: profile.kana | append: '日本語' | url_encode }}">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+JP:wght@400&display=swap&text={{ profile.kana | append: "日本語" | url_encode }}">
   {% endif %}
   <link rel="stylesheet" href="{{ '/assets/css/site.css' | relative_url }}">
   <script>
