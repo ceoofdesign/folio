@@ -141,7 +141,7 @@ html:lang(ja) .hero--game h1 { font-size: clamp(1.5rem, 2.6vw, 2.6rem); }
 .hero--tower .stage__canvas, .hero--city .stage__canvas { cursor: pointer; }
 
 /* Temporary switcher for comparing hero variants */
-.picker { position: fixed; z-index: 40; inset-inline: 0; bottom: 1rem; margin-inline: auto; width: max-content; display: flex; align-items: center; gap: .25rem; padding: .25rem; background: var(--ink); color: var(--paper); border-radius: 999px; font: 400 .75rem/1 var(--mono); box-shadow: 0 8px 24px rgb(0 0 0 / .18); }
+.picker { position: fixed; z-index: 40; inset-inline-start: 1rem; bottom: 1rem; width: max-content; display: flex; align-items: center; gap: .25rem; padding: .25rem; background: var(--ink); color: var(--paper); border-radius: 999px; font: 400 .75rem/1 var(--mono); box-shadow: 0 8px 24px rgb(0 0 0 / .18); }
 .picker__label { padding: 0 .6rem; opacity: .6; }
 .picker a { padding: .5rem .75rem; border-radius: 999px; }
 .picker a[aria-current="true"] { background: var(--paper); color: var(--ink); }

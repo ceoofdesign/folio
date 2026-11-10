@@ -71,6 +71,11 @@
     const hud = { goal: $('[data-hud-goal]', stage), meta: $('[data-hud-meta]', stage), box: $('.stage__hud', stage) };
     const banner = { box: $('.stage__banner', stage), title: $('[data-banner-title]', stage), sub: $('[data-banner-sub]', stage) };
     let zone = { x: 0, y: 0, w: 0, h: 0 };
+    let hudPos = 'top';
+    const placeHud = () => {
+      const y = hudPos === 'bottom' ? zone.y + zone.h - 30 : zone.y + 16;
+      hud.box.style.cssText = `left:${zone.x}px; top:${y}px; width:${zone.w}px`;
+    };
     const kit = {
       still,
       fine,
@@ -83,14 +88,53 @@
       colors: () => {
         const cs = getComputedStyle(root);
         const v = (name) => cs.getPropertyValue(name).trim();
-        return { paper: v('--paper'), plate: v('--plate'), ink: v('--ink'), ink2: v('--ink-2'), line: v('--line'), signal: v('--signal'), select: '#0d99ff', comp: '#9747ff', white: '#ffffff' };
+        const hex = v('--paper').replace('#', '');
+        const dark = hex.length === 6 && parseInt(hex.slice(0, 2), 16) < 90;
+        return {
+          dark,
+          paper: v('--paper'), plate: v('--plate'), ink: v('--ink'), ink2: v('--ink-2'), line: v('--line'), signal: v('--signal'),
+          select: '#0d99ff', comp: '#9747ff', white: '#ffffff',
+          card: dark ? '#1d1f22' : '#ffffff',
+          edge: dark ? 'rgba(255,255,255,.08)' : 'rgba(0,0,0,.08)',
+          shadow: dark ? 'rgba(0,0,0,.55)' : 'rgba(20,22,26,.16)',
+          faint: dark ? 'rgba(255,255,255,.05)' : 'rgba(0,0,0,.04)',
+        };
+      },
+      // A multiplayer cursor, as in a shared Figma file. Used once per game to show the first move.
+      cursor: (ctx, x, y, label, color, press = 0) => {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.scale(1 - press * 0.12, 1 - press * 0.12);
+        ctx.beginPath();
+        ctx.moveTo(0, 0); ctx.lineTo(0, 17); ctx.lineTo(4.6, 12.6); ctx.lineTo(7.8, 19.4); ctx.lineTo(10.6, 18.1); ctx.lineTo(7.5, 11.5); ctx.lineTo(13.4, 11.5);
+        ctx.closePath();
+        ctx.fillStyle = color;
+        ctx.fill();
+        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineJoin = 'round';
+        ctx.stroke();
+        ctx.font = '500 11px Geologica, system-ui, sans-serif';
+        const w = ctx.measureText(label).width + 12;
+        ctx.beginPath();
+        ctx.roundRect(12, 19, w, 19, [2, 6, 6, 6]);
+        ctx.fill();
+        ctx.fillStyle = '#ffffff';
+        ctx.textBaseline = 'middle';
+        ctx.textAlign = 'left';
+        ctx.fillText(label, 18, 29);
+        ctx.restore();
       },
       load: (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } },
       save: (k, val) => { try { localStorage.setItem(k, val); } catch (e) { /* not saved */ } },
       mono: (px) => `400 ${px}px "IBM Plex Mono", "IBM Plex Sans JP", ui-monospace, monospace`,
       sans: (px, w = 400) => `${w} ${px}px Geologica, "IBM Plex Sans JP", system-ui, sans-serif`,
       zone: () => zone,
-      hud: (goal, meta) => { hud.goal.textContent = goal; hud.meta.textContent = meta; },
+      hud: (goal, meta, pos) => {
+        hud.goal.textContent = goal;
+        hud.meta.textContent = meta;
+        if (pos && pos !== hudPos) { hudPos = pos; placeHud(); }
+      },
       banner: (title, sub) => {
         banner.box.hidden = !title;
         if (title) { banner.title.textContent = title; banner.sub.textContent = sub || ''; }
@@ -127,7 +171,7 @@
             const y = tr.bottom - r.top + 16;
             zone = { x: gutter, y, w: r.width - gutter * 2, h: r.height - y };
           }
-          hud.box.style.cssText = `left:${zone.x}px; top:${zone.y + 16}px; width:${zone.w}px`;
+          placeHud();
           banner.box.style.cssText = `left:${zone.x}px; top:${zone.y}px; width:${zone.w}px; height:${zone.h}px`;
           cb(r.width, r.height);
         };
