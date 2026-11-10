@@ -5,6 +5,10 @@
   const fine = matchMedia('(hover: hover) and (pointer: fine)').matches;
   const $ = (q, el = document) => el.querySelector(q);
   const $$ = (q, el = document) => [...el.querySelectorAll(q)];
+  const store = {
+    get: (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } },
+    set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) { /* not saved */ } },
+  };
 
   /* Local time in the header */
   const clock = $('[data-clock]');
@@ -26,7 +30,7 @@
       root.dataset.theme = next;
       void root.offsetWidth;
       requestAnimationFrame(() => root.classList.remove('no-trans'));
-      try { localStorage.setItem('theme', next); } catch (e) { /* the choice just won't persist */ }
+      store.set('theme', next);
     });
   }
 
@@ -44,47 +48,198 @@
     });
   });
 
-  /* 3D ring of product screens: spins slowly, follows drag and scroll, a click opens the case */
+  /* The hero is a small game: screens of a booking flow are stacked from a crane. The first screen
+     becomes a Figma-like canvas; the game plays in a zone beside the text (below it on phones), so
+     the headline stays readable. A finished run can be saved to a public board of records. */
   const hero = $('.hero[data-hero]');
-  const variants = ['ring', 'tower', 'city', 'physics'];
-  let variant = hero ? hero.dataset.hero : 'ring';
-  try {
-    const asked = new URLSearchParams(location.search).get('hero');
-    if (variants.includes(asked)) { variant = asked; localStorage.setItem('hero', asked); }
-    else if ($('.picker') && variants.includes(localStorage.getItem('hero'))) variant = localStorage.getItem('hero');
-  } catch (e) { /* storage blocked: use the configured variant */ }
-  $$('[data-pick]').forEach((a) => a.setAttribute('aria-current', a.dataset.pick === variant ? 'true' : 'false'));
-
-  /* Games in the hero. The whole first screen becomes a Figma-like canvas; the game plays
-     in a zone beside the text (or below it on phones), so the headline stays readable. */
   const stage = $('[data-stage]');
-  if (hero && stage && variant !== 'ring') {
-    hero.classList.add('hero--game', `hero--${variant}`);
+  if (hero && stage && window.ResizeObserver && window.CanvasRenderingContext2D && CanvasRenderingContext2D.prototype.roundRect) {
+    hero.classList.add('hero--game');
     stage.hidden = false;
-    const ringEl = $('[data-orbit]');
-    if (ringEl) ringEl.hidden = true;
     let strings = {};
     try { strings = JSON.parse(stage.dataset.strings || '{}'); } catch (e) { /* fall back to keys */ }
+    const lang = root.lang || 'en';
     const touch = matchMedia('(hover: none)').matches;
     const canvas = $('canvas', stage);
     const text = $('.hero__text', hero);
-    const hud = { goal: $('[data-hud-goal]', stage), meta: $('[data-hud-meta]', stage), box: $('.stage__hud', stage) };
-    const banner = { box: $('.stage__banner', stage), title: $('[data-banner-title]', stage), sub: $('[data-banner-sub]', stage) };
-    let zone = { x: 0, y: 0, w: 0, h: 0 };
-    let hudPos = 'top';
-    const placeHud = () => {
-      const y = hudPos === 'bottom' ? zone.y + zone.h - 30 : zone.y + 16;
-      hud.box.style.cssText = `left:${zone.x}px; top:${y}px; width:${zone.w}px`;
+    const fmt = (s, v = {}) => String(s).replace(/\{(\w+)\}/g, (m, k) => (k in v ? v[k] : m));
+    const say = (key, v) => {
+      const k = touch && strings[`${key}_touch`] ? `${key}_touch` : key;
+      return fmt(strings[k] || key, v);
     };
+    const hudEl = {
+      box: $('.stage__hud', stage),
+      n: $('[data-hud-n]', stage),
+      label: $('[data-hud-label]', stage),
+      bugs: $('[data-hud-bugs]', stage),
+    };
+    let zone = { x: 0, y: 0, w: 0, h: 0 };
+    let lastN = 0;
+
+    /* Records: a Google Sheet behind a small web app (see tools/leaderboard.gs). Until its address is
+       set in _config.yml, runs are kept on this device only. */
+    const boardUrl = stage.dataset.board || '';
+    const email = stage.dataset.email || '';
+    const mine = () => ({ name: store.get('towerName') || '', company: store.get('towerCompany') || '' });
+    const localRuns = () => { try { return JSON.parse(store.get('towerRuns') || '[]'); } catch (e) { return []; } };
+    const sortRuns = (list) => list.slice().sort((a, b) => b.score - a.score);
+    let cache = null;
+    const fetchBoard = (fresh) => {
+      if (!boardUrl) return Promise.resolve({ local: true, board: sortRuns(localRuns()) });
+      if (!fresh && cache && Date.now() - cache.at < 30000) return Promise.resolve(cache.data);
+      return fetch(boardUrl).then((r) => r.json()).then((data) => {
+        if (!data || !data.ok) throw new Error('board');
+        cache = { at: Date.now(), data };
+        return data;
+      });
+    };
+    const postRun = (run) => {
+      if (!boardUrl) return Promise.reject(new Error('local'));
+      // A plain text body keeps this a simple request, so the browser sends it without a preflight
+      return fetch(boardUrl, { method: 'POST', body: JSON.stringify(run) }).then((r) => r.json()).then((data) => {
+        if (!data || !data.ok) throw new Error('board');
+        cache = { at: Date.now(), data };
+        return data;
+      });
+    };
+    const keepLocal = (run) => {
+      const list = sortRuns(localRuns().concat({ name: run.name, company: run.company, score: run.score, date: new Date().toISOString().slice(0, 10) })).slice(0, 20);
+      store.set('towerRuns', JSON.stringify(list));
+      return list;
+    };
+    const isMine = (r, me) => me.name && r.name === me.name && (r.company || '') === (me.company || '');
+    const mailto = (run) => {
+      const me = mine();
+      let body = say('mail_body');
+      if (run && me.name) {
+        const who = me.company ? say('who_company', { name: me.name, company: me.company }) : me.name;
+        body = say('mail_body_named', { who, n: run.score });
+      }
+      return `mailto:${email}?subject=${encodeURIComponent(say('mail_subject'))}&body=${encodeURIComponent(body)}`;
+    };
+    const rowsInto = (list, board, me, limit) => {
+      list.textContent = '';
+      let shown = board.slice(0, limit);
+      const at = board.findIndex((r) => isMine(r, me));
+      if (at >= limit) shown = board.slice(0, limit - 1).concat(board[at]);
+      shown.forEach((r) => {
+        const li = document.createElement('li');
+        const rank = board.indexOf(r) + 1;
+        if (isMine(r, me)) li.className = 'is-me';
+        [String(rank).padStart(2, '0'), r.name, r.company || '—', r.score].forEach((v, i) => {
+          const span = document.createElement('span');
+          span.textContent = v;
+          if (i === 2 && !r.company) span.className = 'is-empty';
+          li.append(span);
+        });
+        list.append(li);
+      });
+    };
+
+    // Dialog with the full board, opened from the HUD and from the game-over panel
+    const dialog = $('[data-records]');
+    const openRecords = () => {
+      if (!dialog || !dialog.showModal) return;
+      const list = $('[data-records-list]', dialog);
+      const note = $('[data-records-note]', dialog);
+      list.textContent = '';
+      note.textContent = say('board_loading');
+      $('[data-records-mail]', dialog).href = mailto(null);
+      dialog.showModal();
+      fetchBoard(true).then((data) => {
+        const board = data.board || [];
+        note.textContent = !board.length ? say('board_empty') : data.local ? say('board_local') : '';
+        note.hidden = !note.textContent;
+        rowsInto(list, board, mine(), 50);
+      }).catch(() => { note.hidden = false; note.textContent = say('board_error'); });
+    };
+    $$('[data-records-open]').forEach((b) => b.addEventListener('click', openRecords));
+    if (dialog) {
+      $('[data-records-close]', dialog).addEventListener('click', () => dialog.close());
+      dialog.addEventListener('click', (e) => { if (e.target === dialog) dialog.close(); });
+    }
+
+    // Panel shown when a run ends: the result, a form to save it and a way to get in touch
+    const ov = {
+      box: $('[data-over]', stage),
+      title: $('[data-over-title]', stage),
+      sub: $('[data-over-sub]', stage),
+      rank: $('[data-over-rank]', stage),
+      form: $('[data-over-form]', stage),
+      saved: $('[data-over-saved]', stage),
+      list: $('[data-over-list]', stage),
+      status: $('[data-over-status]', stage),
+      cta: $('[data-over-cta]', stage),
+      mail: $('[data-over-mail]', stage),
+    };
+    let run = null;
+    let again = null;
+    let overTimer = 0;
+    const submit = $('button[type="submit"]', ov.form);
+    const showSaved = (board, me, message) => {
+      ov.form.hidden = true;
+      ov.rank.hidden = true;
+      ov.saved.hidden = false;
+      ov.status.textContent = message;
+      rowsInto(ov.list, board, me, 5);
+      ov.cta.textContent = me.company ? say('cta_company', { company: me.company }) : say('cta');
+      ov.mail.href = mailto(run);
+    };
+    ov.form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      if (!run) return;
+      const data = new FormData(ov.form);
+      const me = { name: String(data.get('name') || '').trim().slice(0, 40), company: String(data.get('company') || '').trim().slice(0, 60) };
+      if (!me.name) { ov.form.elements.name.focus(); return; }
+      store.set('towerName', me.name);
+      store.set('towerCompany', me.company);
+      submit.disabled = true;
+      submit.textContent = say('saving');
+      const entry = { name: me.name, company: me.company, score: run.score, seconds: run.seconds, lang };
+      postRun(entry).then((res) => {
+        const board = res.board || [];
+        showSaved(board, me, say('saved', { n: res.rank || board.findIndex((r) => isMine(r, me)) + 1, m: res.total || board.length }));
+      }).catch((err) => {
+        const list = keepLocal(entry);
+        showSaved(list, me, err.message === 'local' ? say('saved_local') : say('error'));
+      }).finally(() => { submit.disabled = false; submit.textContent = say('save'); });
+    });
+    $$('[data-again]', stage).forEach((b) => b.addEventListener('click', () => { if (again) again(); }));
+
+    const showOver = (r) => {
+      clearTimeout(overTimer);
+      run = r;
+      if (!r) { ov.box.hidden = true; return; }
+      overTimer = setTimeout(() => {
+        ov.title.textContent = say(r.reason);
+        ov.sub.textContent = say('result', { n: r.score, m: r.best }) + (r.newBest && r.score > 0 ? ` · ${say('new_best')}` : '');
+        ov.rank.hidden = true;
+        ov.saved.hidden = true;
+        ov.form.hidden = r.score < 1;
+        ov.cta.textContent = say('cta');
+        ov.mail.href = mailto(null);
+        const me = mine();
+        if (!ov.form.elements.name.value) ov.form.elements.name.value = me.name;
+        if (!ov.form.elements.company.value) ov.form.elements.company.value = me.company;
+        ov.box.hidden = false;
+        if (document.activeElement === canvas && r.score > 0) ov.form.elements.name.focus({ preventScroll: true });
+        if (r.score > 0 && boardUrl) {
+          fetchBoard(false).then((data) => {
+            if (run !== r) return;
+            const ahead = (data.board || []).filter((x) => x.score > r.score).length;
+            if (ahead < 50) { ov.rank.textContent = say('rank', { n: ahead + 1 }); ov.rank.hidden = !ov.saved.hidden; }
+          }).catch(() => { /* the panel works without it */ });
+        }
+      }, 450);
+    };
+
     const kit = {
       still,
       fine,
       touch,
       canvas,
-      t: (key, n, m) => {
-        const k = touch && strings[`${key}_touch`] ? `${key}_touch` : key;
-        return (strings[k] || key).replace('{n}', n).replace('{m}', m);
-      },
+      t: say,
+      list: (key) => say(key).split(',').map((s) => s.trim()),
       colors: () => {
         const cs = getComputedStyle(root);
         const v = (name) => cs.getPropertyValue(name).trim();
@@ -93,14 +248,14 @@
         return {
           dark,
           paper: v('--paper'), plate: v('--plate'), ink: v('--ink'), ink2: v('--ink-2'), line: v('--line'), signal: v('--signal'),
-          select: '#0d99ff', comp: '#9747ff', white: '#ffffff',
+          select: '#0d99ff', comp: '#9747ff', green: '#14ae5c', white: '#ffffff',
           card: dark ? '#1d1f22' : '#ffffff',
           edge: dark ? 'rgba(255,255,255,.08)' : 'rgba(0,0,0,.08)',
           shadow: dark ? 'rgba(0,0,0,.55)' : 'rgba(20,22,26,.16)',
-          faint: dark ? 'rgba(255,255,255,.05)' : 'rgba(0,0,0,.04)',
+          faint: dark ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.05)',
         };
       },
-      // A multiplayer cursor, as in a shared Figma file. Used once per game to show the first move.
+      // A multiplayer cursor, as in a shared Figma file. Shows the first move once.
       cursor: (ctx, x, y, label, color, press = 0) => {
         ctx.save();
         ctx.translate(x, y);
@@ -114,7 +269,7 @@
         ctx.strokeStyle = '#ffffff';
         ctx.lineJoin = 'round';
         ctx.stroke();
-        ctx.font = '500 11px Geologica, system-ui, sans-serif';
+        ctx.font = '500 11px Geologica, "IBM Plex Sans JP", system-ui, sans-serif';
         const w = ctx.measureText(label).width + 12;
         ctx.beginPath();
         ctx.roundRect(12, 19, w, 19, [2, 6, 6, 6]);
@@ -125,34 +280,39 @@
         ctx.fillText(label, 18, 29);
         ctx.restore();
       },
-      load: (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } },
-      save: (k, val) => { try { localStorage.setItem(k, val); } catch (e) { /* not saved */ } },
+      load: store.get,
+      save: store.set,
       mono: (px) => `400 ${px}px "IBM Plex Mono", "IBM Plex Sans JP", ui-monospace, monospace`,
       sans: (px, w = 400) => `${w} ${px}px Geologica, "IBM Plex Sans JP", system-ui, sans-serif`,
       zone: () => zone,
-      hud: (goal, meta, pos) => {
-        hud.goal.textContent = goal;
-        hud.meta.textContent = meta;
-        if (pos && pos !== hudPos) { hudPos = pos; placeHud(); }
+      // Space the HUD takes at the top of the zone
+      top: () => (hudEl.box.offsetHeight || 48) + 12,
+      hud: ({ n, best, bugs, hint }) => {
+        hudEl.n.textContent = n;
+        if (n > lastN && !still) {
+          hudEl.n.classList.remove('is-bump');
+          void hudEl.n.offsetWidth;
+          hudEl.n.classList.add('is-bump');
+        }
+        lastN = n;
+        hudEl.label.textContent = hint ? say('hint') : say('label', { m: best });
+        $$('i', hudEl.bugs).forEach((i, k) => i.classList.toggle('is-on', k < bugs));
+        hudEl.bugs.setAttribute('aria-label', say('lives', { n: bugs }));
       },
-      banner: (title, sub) => {
-        banner.box.hidden = !title;
-        if (title) { banner.title.textContent = title; banner.sub.textContent = sub || ''; }
-      },
+      over: showOver,
+      onAgain: (fn) => { again = fn; },
       // Click or tap inside the game zone, or Space and Enter on the focused canvas
       onAct: (fn) => {
         hero.addEventListener('click', (e) => {
-          if (e.target.closest('a, button')) return;
+          if (e.target.closest('a, button, input, label, form, [data-over]')) return;
           const r = canvas.getBoundingClientRect();
           const p = { x: e.clientX - r.left, y: e.clientY - r.top };
-          if (p.x >= zone.x && p.x <= zone.x + zone.w && p.y >= zone.y && p.y <= zone.y + zone.h) fn(p);
+          if (p.x >= zone.x && p.x <= zone.x + zone.w && p.y >= zone.y && p.y <= zone.y + zone.h) fn(p, false);
         });
         canvas.addEventListener('keydown', (e) => {
-          if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); fn(null); }
+          if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); fn(null, true); }
         });
       },
-      point: (e) => { const r = canvas.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; },
-      inZone: (p) => p.x >= zone.x && p.x <= zone.x + zone.w && p.y >= zone.y && p.y <= zone.y + zone.h,
       // Keeps the canvas sharp, measures the play zone and calls back on every resize
       fit: (cb) => {
         const ctx = canvas.getContext('2d');
@@ -168,11 +328,11 @@
             const x = tr.right - r.left + Math.max(24, r.width * 0.03);
             zone = { x, y: 0, w: r.width - x - gutter, h: r.height };
           } else {
-            const y = tr.bottom - r.top + 16;
+            const y = tr.bottom - r.top + 24;
             zone = { x: gutter, y, w: r.width - gutter * 2, h: r.height - y };
           }
-          placeHud();
-          banner.box.style.cssText = `left:${zone.x}px; top:${zone.y}px; width:${zone.w}px; height:${zone.h}px`;
+          hudEl.box.style.cssText = `left:${zone.x}px; top:${zone.y + 12}px; width:${zone.w}px`;
+          ov.box.style.cssText = `left:${zone.x}px; top:${zone.y}px; width:${zone.w}px; height:${zone.h}px`;
           cb(r.width, r.height);
         };
         new ResizeObserver(apply).observe(canvas);
@@ -185,7 +345,7 @@
         const o = ((offY % 20) + 20) % 20;
         for (let y = o; y < H; y += 20) for (let x = 10; x < W; x += 20) ctx.fillRect(x, y, 1, 1);
       },
-      // Runs the frame callback only while the hero is on screen
+      // Runs the frame callback only while the hero is on screen and the tab is visible
       loop: (fn) => {
         let on = true;
         let raf = 0;
@@ -207,137 +367,11 @@
         new MutationObserver(fn).observe(root, { attributes: true, attributeFilter: ['data-theme'] });
       },
     };
-    canvas.setAttribute('aria-label', kit.t(`${variant}_aria`));
-    const start = () => window.HeroGames && window.HeroGames[variant] && window.HeroGames[variant](kit);
+    canvas.setAttribute('aria-label', say('aria'));
     const script = document.createElement('script');
-    script.src = `${stage.dataset.base}hero-${variant}.js`;
-    script.onload = start;
+    script.src = `${stage.dataset.base}hero-tower.js`;
+    script.onload = () => window.HeroTower && window.HeroTower(kit);
     document.head.append(script);
-  }
-
-  const orbit = variant === 'ring' ? $('[data-orbit]') : null;
-  if (orbit) {
-    const ring = $('.orbit__ring', orbit);
-    const cards = $$('.orbit__card', orbit);
-    const cap = { no: $('[data-cap="no"]', orbit), name: $('[data-cap="name"]', orbit), meta: $('[data-cap="meta"]', orbit) };
-    const n = cards.length;
-    const step = 360 / n;
-    root.classList.add('orbit-on');
-    orbit.style.setProperty('--step', `${step}deg`);
-
-    const cruise = still ? 0 : -0.06;          // degrees per frame when left alone
-    let rot = still ? 0 : 140;                  // starts turned away and spins in
-    let vel = still ? 0 : -2.6;
-    let auto = cruise;
-    let tilt = -7;
-    let tiltTo = -7;
-    let snap = null;
-    let drag = null;
-    let front = -1;
-    let visible = true;
-    let raf = 0;
-    let last = performance.now();
-    let lastScroll = scrollY;
-
-    const layout = () => {
-      const w = cards[0].offsetWidth;
-      orbit.style.setProperty('--r', `${Math.round(w / 2 / Math.tan(Math.PI / n) + w * 0.16)}px`);
-    };
-    layout();
-    addEventListener('resize', layout);
-
-    const frame = (now) => {
-      const dt = Math.min(48, now - last) / 16.67;
-      last = now;
-      if (snap !== null) {
-        rot += (snap - rot) * Math.min(1, 0.12 * dt);
-        vel = 0;
-        if (Math.abs(snap - rot) < 0.05) { rot = snap; snap = null; }
-      } else if (!drag) {
-        vel += (auto - vel) * Math.min(1, 0.035 * dt);
-        rot += vel * dt;
-      }
-      tilt += (tiltTo - tilt) * Math.min(1, 0.08 * dt);
-      ring.style.transform = `translateZ(calc(var(--r) * -1)) rotateX(${tilt.toFixed(2)}deg) rotateY(${rot.toFixed(2)}deg)`;
-
-      let best = 0;
-      let bestCos = -2;
-      cards.forEach((card, i) => {
-        const cos = Math.cos(((i * step + rot) * Math.PI) / 180);
-        card.style.setProperty('--fade', ((1 - cos) * 0.42).toFixed(3));
-        if (cos > bestCos) { bestCos = cos; best = i; }
-      });
-      if (best !== front) {
-        front = best;
-        const card = cards[best];
-        cap.no.textContent = card.dataset.no;
-        cap.name.textContent = card.dataset.name;
-        cap.meta.textContent = card.dataset.meta;
-        cards.forEach((c, i) => c.classList.toggle('is-front', i === best));
-      }
-      raf = visible ? requestAnimationFrame(frame) : 0;
-    };
-    raf = requestAnimationFrame(frame);
-
-    new IntersectionObserver(([entry]) => {
-      visible = entry.isIntersecting;
-      if (visible && !raf) { last = performance.now(); raf = requestAnimationFrame(frame); }
-    }).observe(orbit);
-
-    // Drag with mouse, pen or finger. Vertical swipes still scroll the page.
-    orbit.addEventListener('pointerdown', (e) => {
-      if (e.button !== 0) return;
-      drag = { x: e.clientX, rot, t: performance.now(), moved: false, id: e.pointerId };
-      snap = null;
-    });
-    addEventListener('pointermove', (e) => {
-      if (fine && !drag) {
-        const r = orbit.getBoundingClientRect();
-        if (e.clientY > r.top && e.clientY < r.bottom) {
-          const x = (e.clientX - r.left) / r.width - 0.5;
-          const y = (e.clientY - r.top) / r.height - 0.5;
-          auto = still ? 0 : cruise - x * 0.5;
-          tiltTo = -7 + y * 6;
-        } else { auto = cruise; tiltTo = -7; }
-      }
-      if (!drag || e.pointerId !== drag.id) return;
-      const dx = e.clientX - drag.x;
-      if (!drag.moved && Math.abs(dx) > 6) { drag.moved = true; orbit.classList.add('is-dragging'); orbit.setPointerCapture(e.pointerId); }
-      if (!drag.moved) return;
-      const next = drag.rot + dx * 0.22;
-      const t = performance.now();
-      vel = (next - rot) / Math.max(1, (t - drag.t) / 16.67);
-      drag.t = t;
-      rot = next;
-    });
-    const release = (e) => {
-      if (!drag || (e && e.pointerId !== drag.id)) return;
-      const moved = drag.moved;
-      drag = null;
-      orbit.classList.remove('is-dragging');
-      if (moved) {
-        vel = Math.max(-3.5, Math.min(3.5, vel));
-        orbit.addEventListener('click', (ev) => { ev.preventDefault(); ev.stopPropagation(); }, { capture: true, once: true });
-      }
-    };
-    addEventListener('pointerup', release);
-    addEventListener('pointercancel', release);
-
-    // Scrolling the page nudges the ring
-    if (!still) {
-      addEventListener('scroll', () => {
-        const d = scrollY - lastScroll;
-        lastScroll = scrollY;
-        if (visible && !drag) vel -= Math.max(-3, Math.min(3, d * 0.03));
-      }, { passive: true });
-    }
-
-    // Keyboard: the focused card turns to the front
-    cards.forEach((card, i) => card.addEventListener('focus', () => {
-      const target = -i * step;
-      snap = target + Math.round((rot - target) / 360) * 360;
-    }));
-    orbit.addEventListener('mouseleave', () => { auto = cruise; tiltTo = -7; });
   }
 
   /* Image preview that follows the cursor over index rows */

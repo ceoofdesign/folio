@@ -38,11 +38,11 @@ defaults:
 exclude:
   - README.md
   - .gitignore
+  - tools
 
 # Показывать переключатель языка. Поставьте false, пока японские тексты не вычитаны.
 ja_published: true
 
-# Вариант первого экрана: ring, tower, city или physics
-hero: tower
-# Временный переключатель вариантов внизу экрана. Выключить перед показом рекрутёрам.
-hero_picker: true
+# Адрес веб-приложения Google Apps Script для общей таблицы рекордов игры (см. tools/leaderboard.gs и README).
+# Пока пусто, рекорды сохраняются только в браузере игрока.
+leaderboard_url: ""

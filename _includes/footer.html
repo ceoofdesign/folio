@@ -6,6 +6,6 @@
     <a class="link" href="{{ profile.linkedin }}" rel="me">LinkedIn</a>
     <a class="link" href="{{ profile.telegram }}" rel="me">Telegram</a>
     {% if profile.cv %}<a class="link" href="{{ profile.cv | relative_url }}">CV</a>{% endif %}
-    <p class="end__kana" lang="ja">{{ profile.kana }}</p>
+    {% if lang == "ja" %}<p class="end__kana" lang="en">{{ profile.name }}</p>{% else %}<p class="end__kana" lang="ja">{{ profile.kana }}</p>{% endif %}
   </div>
 </footer>

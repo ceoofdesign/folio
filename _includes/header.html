@@ -1,12 +1,12 @@
 {% assign home = "/" %}{% if lang == "ja" %}{% assign home = "/ja/" %}{% endif %}
 <header class="top">
-  <a class="top__name" href="{{ home | relative_url }}">{{ profile.name }}</a>
+  <a class="top__name" href="{{ home | relative_url }}">{{ p.name }}</a>
   <p class="top__clock"><span data-clock data-tz="{{ profile.timezone }}" data-lang="{{ lang }}">{{ p.city }}</span></p>
   <nav class="top__nav" aria-label="Main">
     <a href="{{ home | append: '#work' | relative_url }}">{{ t.work }}</a>
     <a href="{{ home | append: '#about' | relative_url }}">{{ t.about }}</a>
     <a href="mailto:{{ profile.email }}">{{ t.email }}</a>
-    {% if site.ja_published != false %}
+    {% if site.ja_published != false and page.no_alternate != true %}
     <span class="lang" role="group" aria-label="Language">
       {% if lang == "en" %}
       <span class="lang__item" aria-current="true">EN</span>

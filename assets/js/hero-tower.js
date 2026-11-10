@@ -1,10 +1,11 @@
 // Tower: a screen of a booking flow swings from a crane. Release it on time to stack the flow.
 // Off-centre landings make the tower sway; a screen that hangs over the edge tips off — a bug.
-// Three bugs or a collapse end the run. Ten screens ship the flow.
-(window.HeroGames = window.HeroGames || {}).tower = (kit) => {
-  const SCREENS = ['Search', 'Results', 'Filters', 'Hotel', 'Rooms', 'Guests', 'Payment', '3-D Secure', 'Confirm', 'E-ticket'];
-  const TINTS = ['select', 'comp', 'signal'];
-  const GOAL = 10;
+// Three bugs or a collapse end the run. Every ten screens ship a flow; the run goes on as long as it stands.
+window.HeroTower = (kit) => {
+  const SCREENS = kit.list('screens');
+  const ICONS = ['search', 'dates', 'list', 'map', 'filters', 'hotel', 'reviews', 'rooms', 'guests', 'payment', 'secure', 'confirm', 'ticket', 'support'];
+  const TINTS = ['select', 'comp', 'signal', 'green'];
+  const MILESTONE = 10;
   const G = 0.62;                                   // gravity, px per frame²
   let C = kit.colors();
   let W = 0;
@@ -27,7 +28,9 @@
   const base = { dip: 0, v: 0 };
   let bugs;
   let state;
-  let won;
+  let startedAt = 0;
+  let endedAt = 0;
+  let hinted = false;
   let touched = false;
   let demo = null;
   let best = Number(kit.load('towerBest')) || 0;
@@ -44,21 +47,17 @@
     bw = Math.round(Math.max(104, Math.min(Z.w * (narrow ? 0.36 : 0.26), 156)));
     bh = Math.round(bw * 0.4);
     cx = Z.x + Z.w / 2;
-    groundY = Z.y + Z.h - 60;
-    jibY = Z.y + (narrow ? 54 : 40);
+    groundY = Z.y + Z.h - 40;
+    jibY = Z.y + kit.top() + 30;
     rope = Math.max(bh * 2.2, Math.min(Z.h * 0.2, 190));
   };
 
-  const hud = () => {
-    const n = blocks.length;
-    const goal = n < GOAL && !won ? kit.t('tower_goal', n, GOAL) : kit.t('tower_goal_endless', n, Math.max(best, n));
-    kit.hud(goal, kit.t('tower_lives', bugs), 'bottom');
-  };
-  const tint = (k) => C[TINTS[k % 3]];
+  const hud = () => kit.hud({ n: blocks.length, best: Math.max(best, blocks.length), bugs, hint: !hinted });
+  const tint = (k) => C[TINTS[k % TINTS.length]];
 
   const newHang = () => {
     const n = blocks.length;
-    hang = { k: n, name: SCREENS[n % SCREENS.length], drop: 0, phase: Math.random() * Math.PI * 2 };
+    hang = { k: n, name: SCREENS[n % SCREENS.length], icon: ICONS[n % ICONS.length], drop: 0, phase: Math.random() * Math.PI * 2 };
   };
   const reset = () => {
     blocks = [];
@@ -72,8 +71,8 @@
     base.v = 0;
     bugs = 0;
     state = 'play';
-    won = false;
-    kit.banner(null);
+    startedAt = performance.now();
+    kit.over(null);
     newHang();
     hud();
   };
@@ -103,7 +102,7 @@
     if (!hang || hang.drop < 1 || fall || state !== 'play') return;
     const s = swing();
     fall = {
-      k: hang.k, name: hang.name, x: s.x, y: s.y - cam,
+      k: hang.k, name: hang.name, icon: hang.icon, x: s.x, y: s.y - cam,
       vx: forced ? 0 : (s.R * Math.cos(s.theta) * s.dtheta) / 60,
       vy: forced ? 0 : (-s.R * Math.sin(s.theta) * s.dtheta) / 60,
       rot: -s.theta, av: forced ? 0 : -s.dtheta / 60, mode: 'fall', tip: 0, dir: 0,
@@ -114,12 +113,23 @@
   const burst = (x, y, color) => fx.push({ kind: 'ring', x, y, t: 0, color });
   const pill = (text, x, y, color) => fx.push({ kind: 'pill', text, x, y, t: 0, color });
 
-  const endRun = (key) => {
+  // The score is the height the tower reached, counted before it falls apart
+  const endRun = (reason, score) => {
+    if (state === 'over') return;
     state = 'over';
-    const n = blocks.length;
-    if (n > best) { best = n; kit.save('towerBest', best); }
-    setTimeout(() => kit.banner(kit.t(key), kit.t('tower_result', n, best)), 500);
-    hud();
+    endedAt = performance.now();
+    const newBest = score > best;
+    if (newBest) { best = score; kit.save('towerBest', best); }
+    kit.hud({ n: score, best, bugs, hint: false });
+    kit.over({ reason, score, best, newBest, seconds: Math.round((performance.now() - startedAt) / 1000) });
+  };
+  const collapse = (dir, spin) => {
+    const score = blocks.length;
+    blocks.forEach((b, i) => debris.push({ k: b.k, name: b.name, icon: b.icon, x: b.x + swayAt(i), y: groundY - (i + 0.5) * bh, vx: dir * (0.5 + i * 0.32) + (Math.random() - 0.5) * 0.6, vy: -Math.random() * 1.6, rot: angle(), av: dir * (spin + i * 0.005) }));
+    blocks = [];
+    tilt.a = 0;
+    tilt.v = 0;
+    endRun('lose_fall', score);
   };
 
   const land = () => {
@@ -138,41 +148,36 @@
     }
     const perfect = Math.abs(dx) <= bw * 0.06;
     const x = perfect ? (n ? blocks[n - 1].x : cx) : fall.x - swayAt(n, n + 1);
-    blocks.push({ k: fall.k, name: fall.name, x, r: perfect ? 0 : Math.max(-0.12, Math.min(0.12, fall.rot * 0.5)), rv: 0, sq: 0.86, sqv: 0 });
+    blocks.push({ k: fall.k, name: fall.name, icon: fall.icon, x, r: perfect ? 0 : Math.max(-0.12, Math.min(0.12, fall.rot * 0.5)), rv: 0, sq: 0.86, sqv: 0 });
     base.v += 1.6 + Math.abs(fall.vy) * 0.12;
+    hinted = true;
     if (perfect) {
       tilt.v *= 0.35;
       burst(topX, y - bh / 2, C.comp);
-      pill(kit.t('tower_perfect'), topX, y - bh * 1.5, C.comp);
+      pill(kit.t('perfect'), topX, y - bh * 1.5, C.comp);
     } else {
       // An off-centre landing pushes the tower towards that side; the push grows with height
       tilt.v += (dx / bw) * 0.0045 * (1 + blocks.length * 0.12) + fall.vx * 0.0004;
     }
     fall = null;
     const com = comOffset();
-    if (Math.abs(com) > bw * 0.45) {
-      const dir = Math.sign(com || 1);
-      blocks.forEach((b, i) => debris.push({ k: b.k, name: b.name, x: b.x + swayAt(i), y: groundY - (i + 0.5) * bh, vx: dir * (0.6 + i * 0.35) + (Math.random() - 0.5), vy: -Math.random() * 2, rot: 0, av: dir * (0.01 + i * 0.006) }));
-      blocks = [];
-      endRun('tower_lose_fall');
-      return;
-    }
-    if (blocks.length === GOAL && !won) {
-      won = true;
+    if (Math.abs(com) > bw * 0.45) { collapse(Math.sign(com || 1), 0.01); return; }
+    if (blocks.length % MILESTONE === 0) {
       for (let k = 0; k < 64; k += 1) fx.push({ kind: 'bit', x: cx + (Math.random() - 0.5) * bw, y: y - bh, vx: (Math.random() - 0.5) * 8, vy: -Math.random() * 8 - 3, s: 3 + Math.random() * 3, color: tint(k), r: Math.random() * 6, t: 0 });
-      kit.banner(kit.t('tower_win'), kit.t('tower_win_sub', bugs));
-      setTimeout(() => { if (state === 'play') kit.banner(null); }, 2600);
+      pill(kit.t('milestone'), cx, y - bh * 0.5, C.green);
     }
     hud();
     newHang();
   };
 
-  kit.onAct(() => {
+  kit.onAct((p, key) => {
     demo = null;
     touched = true;
-    if (state === 'over') { reset(); return; }
+    // The keyboard restarts a finished run, but not in the moment it ends, so a late press isn't lost
+    if (state === 'over') { if (key && performance.now() - endedAt > 900) reset(); return; }
     release(false);
   });
+  kit.onAgain(() => { demo = null; touched = true; reset(); });
   kit.onTheme(() => { C = kit.colors(); });
   const ctx = kit.fit((w, h) => { const first = !W; W = w; H = h; measure(); if (first) reset(); });
 
@@ -206,6 +211,38 @@
 
   const rr = (x, y, w, h, r) => { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); };
 
+  // Line icons for each screen of the flow, drawn on a ±1 grid scaled by s
+  const glyph = (id, s) => {
+    const L = (x1, y1, x2, y2) => { ctx.moveTo(x1 * s, y1 * s); ctx.lineTo(x2 * s, y2 * s); };
+    const R = (x, y, w, h, r = 0.2) => { ctx.moveTo((x + r) * s, y * s); ctx.roundRect(x * s, y * s, w * s, h * s, r * s); };
+    const O = (x, y, r) => { ctx.moveTo((x + r) * s, y * s); ctx.arc(x * s, y * s, r * s, 0, Math.PI * 2); };
+    ctx.beginPath();
+    switch (id) {
+      case 'search': O(-0.15, -0.15, 0.58); L(0.3, 0.3, 0.85, 0.85); break;
+      case 'dates': R(-0.85, -0.65, 1.7, 1.5); L(-0.85, -0.15, 0.85, -0.15); L(-0.4, -0.95, -0.4, -0.45); L(0.4, -0.95, 0.4, -0.45); break;
+      case 'list': [-0.6, 0, 0.6].forEach((y) => { L(-0.3, y, 0.85, y); L(-0.85, y, -0.62, y); }); break;
+      case 'map': ctx.moveTo(0, 0.92 * s); ctx.arc(0, -0.2 * s, 0.62 * s, 0.78 * Math.PI, 0.22 * Math.PI); ctx.closePath(); O(0, -0.2, 0.2); break;
+      case 'filters': L(-0.85, -0.45, 0.85, -0.45); L(-0.85, 0.45, 0.85, 0.45); O(0.32, -0.45, 0.22); O(-0.32, 0.45, 0.22); break;
+      case 'hotel': R(-0.7, -0.9, 1.4, 1.8, 0.12); L(-0.3, -0.45, -0.1, -0.45); L(0.1, -0.45, 0.3, -0.45); L(-0.3, 0, -0.1, 0); L(0.1, 0, 0.3, 0); L(-0.18, 0.9, -0.18, 0.5); L(-0.18, 0.5, 0.18, 0.5); L(0.18, 0.5, 0.18, 0.9); break;
+      case 'reviews':
+        for (let i = 0; i <= 10; i += 1) {
+          const r = i % 2 ? 0.42 : 0.92;
+          const a = -Math.PI / 2 + (i * Math.PI) / 5;
+          if (i === 0) ctx.moveTo(Math.cos(a) * r * s, Math.sin(a) * r * s + 0.06 * s);
+          else ctx.lineTo(Math.cos(a) * r * s, Math.sin(a) * r * s + 0.06 * s);
+        }
+        break;
+      case 'rooms': L(-0.9, -0.7, -0.9, 0.75); R(-0.9, -0.05, 1.8, 0.55, 0.12); L(0.9, 0.5, 0.9, 0.75); R(-0.62, -0.42, 0.55, 0.37, 0.12); break;
+      case 'guests': O(0, -0.42, 0.36); ctx.moveTo(-0.78 * s, 0.85 * s); ctx.quadraticCurveTo(-0.7 * s, 0.08 * s, 0, 0.08 * s); ctx.quadraticCurveTo(0.7 * s, 0.08 * s, 0.78 * s, 0.85 * s); break;
+      case 'payment': R(-0.9, -0.6, 1.8, 1.2, 0.18); L(-0.9, -0.2, 0.9, -0.2); L(-0.55, 0.3, -0.1, 0.3); break;
+      case 'secure': R(-0.65, -0.1, 1.3, 0.95, 0.15); ctx.moveTo(-0.38 * s, -0.1 * s); ctx.arc(0, -0.4 * s, 0.38 * s, Math.PI, 0); ctx.lineTo(0.38 * s, -0.1 * s); L(0, 0.25, 0, 0.45); break;
+      case 'confirm': ctx.moveTo(-0.72 * s, 0.05 * s); ctx.lineTo(-0.2 * s, 0.55 * s); ctx.lineTo(0.76 * s, -0.5 * s); break;
+      case 'ticket': R(-0.9, -0.55, 1.8, 1.1, 0.15); L(0.3, -0.32, 0.3, -0.12); L(0.3, 0.12, 0.3, 0.32); break;
+      default: R(-0.85, -0.7, 1.7, 1.15, 0.3); ctx.moveTo(-0.4 * s, 0.45 * s); ctx.lineTo(-0.55 * s, 0.85 * s); ctx.lineTo(0.05 * s, 0.45 * s);
+    }
+    ctx.stroke();
+  };
+
   // One screen of the flow, centred on (0, 0)
   const card = (b, opts) => {
     const x = -bw / 2;
@@ -221,15 +258,19 @@
     rr(x + 0.5, y + 0.5, bw - 1, bh - 1, 7.5);
     ctx.stroke();
     const pad = Math.round(bh * 0.24);
-    const icon = Math.round(bh * 0.4);
+    const icon = Math.round(bh * 0.42);
+    const iy = y + (bh - icon) / 2;
     ctx.fillStyle = tint(b.k);
-    rr(x + pad, y + (bh - icon) / 2, icon, icon, 5);
+    rr(x + pad, iy, icon, icon, Math.round(icon * 0.24));
     ctx.fill();
-    ctx.fillStyle = C.white;
-    ctx.globalAlpha = 0.9;
-    rr(x + pad + icon * 0.28, y + (bh - icon) / 2 + icon * 0.28, icon * 0.44, icon * 0.44, 2);
-    ctx.fill();
-    ctx.globalAlpha = 1;
+    ctx.save();
+    ctx.translate(x + pad + icon / 2, iy + icon / 2);
+    ctx.strokeStyle = C.white;
+    ctx.lineWidth = Math.max(1.25, icon * 0.07);
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    glyph(b.icon, icon * 0.29);
+    ctx.restore();
     const tx = x + pad + icon + 8;
     ctx.fillStyle = C.ink;
     ctx.font = kit.sans(Math.max(11, Math.round(bh * 0.25)), 500);
@@ -304,14 +345,7 @@
       const k = 0.0075 / (1 + n * 0.12);
       tilt.v += (-(tilt.a - lean) * k - tilt.v * 0.03) * dt;
       tilt.a += tilt.v * dt;
-      if (n >= 3 && Math.abs(angle()) > MAX_TILT) {
-        const dir = Math.sign(tilt.a);
-        blocks.forEach((b, i) => debris.push({ k: b.k, name: b.name, x: b.x + swayAt(i), y: groundY - (i + 0.5) * bh, vx: dir * (0.5 + i * 0.3), vy: -Math.random() * 1.5, rot: angle(), av: dir * (0.008 + i * 0.005) }));
-        blocks = [];
-        tilt.a = 0;
-        tilt.v = 0;
-        endRun('tower_lose_fall');
-      }
+      if (n >= 3 && Math.abs(angle()) > MAX_TILT) collapse(Math.sign(tilt.a), 0.008);
     }
     if (hang) hang.drop = Math.min(1, hang.drop + 0.035 * dt);
     runDemo(dt);
@@ -344,9 +378,9 @@
           fall.vy = 0;
           fall.av = fall.dir * 0.05;
           bugs += 1;
-          pill(kit.t('tower_bug'), fall.pivot, surface() - bh * 0.8, C.signal);
+          pill(kit.t('bug'), fall.pivot, surface() - bh * 0.8, C.signal);
           hud();
-          if (bugs >= 3) endRun('tower_lose_bugs');
+          if (bugs >= 3) endRun('lose_bugs', blocks.length);
         }
       } else {
         fall.vy += G * dt;
@@ -363,25 +397,21 @@
       f.t += dt;
       if (f.kind === 'bit') { f.vy += 0.3 * dt; f.x += f.vx * dt; f.y += f.vy * dt; f.r += 0.12 * dt; }
     });
-    fx = fx.filter((f) => (f.kind === 'bit' ? f.y < H + 20 : f.t < 60));
+    fx = fx.filter((f) => (f.kind === 'bit' ? f.y + cam < H + 20 : f.t < (f.kind === 'pill' ? 80 : 60)));
 
     ctx.clearRect(0, 0, W, H);
     kit.dots(ctx, W, H, C, cam);
     jib();
 
-    // The frame the flow stands on
+    // The plate the flow stands on
     const gy = groundY + cam + base.dip;
     if (gy < H + 20) {
       ctx.strokeStyle = C.ink2;
       ctx.setLineDash([3, 3]);
       ctx.lineWidth = 1;
-      rr(cx - bw * 0.62, gy + 0.5, bw * 1.24, 12, 3);
+      rr(cx - bw * 0.62, gy + 0.5, bw * 1.24, 10, 3);
       ctx.stroke();
       ctx.setLineDash([]);
-      ctx.fillStyle = C.ink2;
-      ctx.font = kit.mono(9);
-      ctx.textBaseline = 'top';
-      ctx.fillText('Frame / Booking flow', cx - bw * 0.62, gy + 18);
     }
 
     // The tower
@@ -417,7 +447,6 @@
 
     // Feedback
     fx.forEach((f) => {
-      const k = f.t / 60;
       if (f.kind === 'ring' || f.kind === 'tap') {
         const p = f.t / 36;
         if (p > 1) return;
@@ -429,6 +458,7 @@
         ctx.stroke();
         ctx.globalAlpha = 1;
       } else if (f.kind === 'pill') {
+        const k = f.t / 80;
         ctx.globalAlpha = k < 0.7 ? 1 : 1 - (k - 0.7) / 0.3;
         ctx.font = kit.mono(10);
         const w = ctx.measureText(f.text).width + 12;
@@ -444,7 +474,7 @@
         ctx.globalAlpha = 1;
       } else {
         ctx.save();
-        ctx.translate(f.x, f.y);
+        ctx.translate(f.x, f.y + cam);
         ctx.rotate(f.r);
         ctx.fillStyle = f.color;
         ctx.fillRect(-f.s / 2, -f.s / 2, f.s, f.s);

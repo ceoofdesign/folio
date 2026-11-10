@@ -9,6 +9,7 @@ telegram: "https://t.me/ceoofdesign"
 
 # Английская версия
 en:
+  name: "Yar Luchkin"
   role: "Product designer"
   city: "Belgrade"
   headline: "I design marketplaces and travel products used by millions of people, and the design systems that keep them consistent."
@@ -41,6 +42,7 @@ en:
 
 # Японская версия
 ja:
+  name: "ヤル・ルチキン"
   role: "プロダクトデザイナー"
   city: "ベオグラード"
   headline: "数百万人が使うマーケットプレイスや旅行サービスと、その一貫性を支えるデザインシステムをつくっています。"
@@ -61,7 +63,7 @@ ja:
     - value: "100万枚以上"
       label: "私が設計した予約フローで年間に販売される鉄道チケット"
   about:
-    - "プロダクトデザイナーとして5年。それ以前は、ゲームのローンチに向けたPRとローカライズを担当していました。広告・PRと異文化コミュニケーションを学んでいます。"
+    - "プロダクトデザイナーとして5年。それ以前は、ゲームのローンチに向けたPRとローカライズを担当していました。大学では広告・PRと異文化コミュニケーションを学びました。"
     - "これまで手がけたプロダクトの多くは、さまざまな国の人が母語ではない言語で使うものです。仕事は英語で行い、日本語の学習を続けています。"
   about_facts:
     - label: "言語"
