@@ -3,7 +3,7 @@ title: "Rail Ninja: booking train tickets across countries"
 name: "Rail Ninja"
 kind: product
 order: 3
-status: "Shipped"
+state: shipped
 work: "Search, timetables, seats, checkout"
 period: "2023–2026"
 scale: "1M+ tickets a year"

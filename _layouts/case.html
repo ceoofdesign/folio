@@ -1,17 +1,33 @@
 ---
 layout: default
 ---
+{% assign lang = page.lang | default: "en" %}
+{% assign t = site.data.i18n[lang] %}
+{% if lang == "ja" %}
+  {% assign base = site.work | where: "slug", page.slug | first %}
+  {% assign prefix = "/ja" %}
+  {% assign home = "/ja/" %}
+{% else %}
+  {% assign base = page %}
+  {% assign prefix = "" %}
+  {% assign home = "/" %}
+{% endif %}
+{% assign cover = page.cover | default: base.cover %}
+{% assign cover_alt = page.cover_alt | default: base.cover_alt %}
+
 {% assign all = site.work | sort: "order" %}
 {% assign next = all[0] %}
-{% assign prior_was_current = false %}
+{% assign take = false %}
 {% for c in all %}
-  {% if prior_was_current %}{% assign next = c %}{% assign prior_was_current = false %}{% endif %}
-  {% if c.url == page.url %}{% assign prior_was_current = true %}{% endif %}
+  {% if take %}{% assign next = c %}{% assign take = false %}{% endif %}
+  {% if c.slug == page.slug %}{% assign take = true %}{% endif %}
 {% endfor %}
+{% assign next_title = next.title %}
+{% if lang == "ja" %}{% assign next_ja = site.work_ja | where: "slug", next.slug | first %}{% if next_ja %}{% assign next_title = next_ja.title %}{% endif %}{% endif %}
 
 <article class="cs">
   <header class="cs__head">
-    <a class="back" href="{{ '/#work' | relative_url }}"><span aria-hidden="true">←</span> All work</a>
+    <a class="back" href="{{ home | append: '#work' | relative_url }}"><span aria-hidden="true">←</span> {{ t.all_work }}</a>
     <h1>{{ page.title }}</h1>
     <p class="cs__lede">{{ page.lede }}</p>
     <dl class="cs__facts">
@@ -20,12 +36,12 @@ layout: default
   </header>
 
   <figure class="cs__cover">
-    <img src="{{ page.cover | relative_url }}" alt="{{ page.cover_alt | escape }}" fetchpriority="high" data-zoom>
+    <img src="{{ cover | relative_url }}" alt="{{ cover_alt | escape }}" fetchpriority="high" data-zoom>
   </figure>
 
   {% if page.outcomes %}
-  <section class="cs__outcome" aria-label="Outcome">
-    <h2 class="label">Outcome</h2>
+  <section class="cs__outcome" aria-label="{{ t.outcome }}">
+    <h2 class="label">{{ t.outcome }}</h2>
     <ul>
       {% for o in page.outcomes %}<li>{{ o }}</li>{% endfor %}
     </ul>
@@ -37,9 +53,9 @@ layout: default
     {{ content }}
   </div>
 
-  <a class="next" href="{{ next.url | relative_url }}">
-    <span class="label">Next</span>
-    <span class="next__title">{{ next.title }}</span>
+  <a class="next" href="{{ next.url | prepend: prefix | relative_url }}">
+    <span class="label">{{ t.next }}</span>
+    <span class="next__title">{{ next_title }}</span>
     <span class="next__arrow" aria-hidden="true">→</span>
   </a>
 </article>

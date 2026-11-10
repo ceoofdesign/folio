@@ -3,7 +3,7 @@ title: "A design system for four travel products"
 name: "Travel design system"
 kind: product
 order: 2
-status: "Shipped"
+state: shipped
 work: "Tokens, components, design–code link"
 period: "2023–2026"
 scale: "2,000+ components"

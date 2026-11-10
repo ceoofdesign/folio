@@ -1,9 +1,8 @@
-{% assign profile = site.data.profile %}
 <footer class="end" id="contact">
-  <p class="label">Write to me</p>
+  <p class="label">{{ t.write }}</p>
   <a class="end__mail" href="mailto:{{ profile.email }}">{{ profile.email }}</a>
   <div class="end__row">
-    <button type="button" class="link" data-copy="{{ profile.email }}">Copy address</button>
+    <button type="button" class="link" data-copy="{{ profile.email }}" data-copied="{{ t.copied }}">{{ t.copy }}</button>
     <a class="link" href="{{ profile.linkedin }}" rel="me">LinkedIn</a>
     <a class="link" href="{{ profile.telegram }}" rel="me">Telegram</a>
     {% if profile.cv %}<a class="link" href="{{ profile.cv | relative_url }}">CV</a>{% endif %}

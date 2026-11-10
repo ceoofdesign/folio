@@ -1,34 +1,54 @@
-# Всё, что про вас: имя, первая фраза, контакты и блок About.
+# Общие поля для обеих версий
 name: "Yar Luchkin"
 kana: "ヤル・ルチキン"
-role: "Product designer"
-city: "Belgrade"
 timezone: "Europe/Belgrade"
-
-headline: "I design marketplaces and travel products used by millions of people, and the design systems that keep them consistent."
-
-# Короткие факты под первой фразой.
-facts:
-  - label: "Now"
-    value: "Playerok, 4M+ users"
-  - label: "Based"
-    value: "Belgrade, Serbia"
-  - label: "Focus"
-    value: "Design systems, booking, marketplaces"
-
 email: "yar.luchkin@protonmail.com"
 linkedin: "https://www.linkedin.com/in/yar-luchkin/"
 telegram: "https://t.me/ceoofdesign"
-# Когда появится файл резюме: cv: "assets/cv.pdf"
+# Когда появится файл резюме: cv: "/assets/cv.pdf"
 
-about:
-  - "Five years in product design, before that PR and localization for game launches. My background is in advertising and intercultural communication."
-  - "Most products I’ve worked on are used by people from many countries, often in a language that isn’t their own. I’ve studied Japanese since 2018 and work in English."
+# Английская версия
+en:
+  role: "Product designer"
+  city: "Belgrade"
+  headline: "I design marketplaces and travel products used by millions of people, and the design systems that keep them consistent."
+  facts:
+    - label: "Now"
+      value: "Playerok, 4M+ users"
+    - label: "Based"
+      value: "Belgrade, Serbia"
+    - label: "Focus"
+      value: "Design systems, booking, marketplaces"
+  about:
+    - "Five years in product design, before that PR and localization for game launches. My background is in advertising and intercultural communication."
+    - "Most products I’ve worked on are used by people from many countries, often in a language that isn’t their own. I work in English and keep improving my Japanese."
+  about_facts:
+    - label: "Languages"
+      value: "English, professional. Japanese, N4–N3 and improving, since a summer course in Tokyo in 2018. Russian, native."
+    - label: "Community"
+      value: "Workshops and talks on design systems for Galary Design, a UX/UI community in Tokyo."
+    - label: "Education"
+      value: "BA in Advertising and PR, HSE University, Moscow."
 
-about_facts:
-  - label: "Languages"
-    value: "English, professional. Japanese, N4–N3 and improving. Russian, native."
-  - label: "Japan"
-    value: "Design system workshops for Galary Design, Tokyo."
-  - label: "Education"
-    value: "BA in Advertising and PR, HSE University, Moscow."
+# Японская версия
+ja:
+  role: "プロダクトデザイナー"
+  city: "ベオグラード"
+  headline: "数百万人が使うマーケットプレイスや旅行サービスと、その一貫性を支えるデザインシステムをつくっています。"
+  facts:
+    - label: "現在"
+      value: "Playerok（ユーザー400万人以上）"
+    - label: "拠点"
+      value: "セルビア・ベオグラード"
+    - label: "専門"
+      value: "デザインシステム、予約フロー、マーケットプレイス"
+  about:
+    - "プロダクトデザイナーとして5年。それ以前は、ゲームのローンチに向けたPRとローカライズを担当していました。広告・PRと異文化コミュニケーションを学んでいます。"
+    - "これまで手がけたプロダクトの多くは、さまざまな国の人が母語ではない言語で使うものです。仕事は英語で行い、日本語の学習を続けています。"
+  about_facts:
+    - label: "言語"
+      value: "英語（ビジネスレベル）。日本語（N4〜N3相当、2018年の東京での夏期講座から学習中）。ロシア語（母語）。"
+    - label: "コミュニティ"
+      value: "東京のUX/UIコミュニティ Galary Design で、デザインシステムのワークショップと講演を担当。"
+    - label: "学歴"
+      value: "HSE大学（モスクワ）広告・PR学士。"

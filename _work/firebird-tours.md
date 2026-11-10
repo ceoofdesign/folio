@@ -3,7 +3,7 @@ title: "Firebird Tours: tours for travellers and a tool for agents"
 name: "Firebird Tours"
 kind: product
 order: 5
-status: "Shipped"
+state: shipped
 work: "Website, apps, agent tool"
 period: "2023–2026"
 scale: "Web, iOS, Android, B2B"

@@ -1,5 +1,6 @@
 // Every effect here is an enhancement: without JavaScript the site still reads as plain pages.
 (() => {
+  const root = document.documentElement;
   const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const fine = matchMedia('(hover: hover) and (pointer: fine)').matches;
   const $ = (q, el = document) => el.querySelector(q);
@@ -9,20 +10,22 @@
   const clock = $('[data-clock]');
   if (clock) {
     const city = clock.textContent.trim();
-    const format = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: clock.dataset.tz });
+    const format = new Intl.DateTimeFormat(clock.dataset.lang === 'ja' ? 'ja-JP' : 'en-GB', { hour: '2-digit', minute: '2-digit', timeZone: clock.dataset.tz });
     const tick = () => { clock.textContent = `${city} ${format.format(new Date())}`; };
     tick();
     setInterval(tick, 20000);
   }
 
-  /* Colour theme */
+  /* Colour theme, switched without every colour transition firing at once */
   const themeButton = $('[data-theme-toggle]');
   if (themeButton) {
     themeButton.addEventListener('click', () => {
-      const root = document.documentElement;
       const dark = root.dataset.theme ? root.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
       const next = dark ? 'light' : 'dark';
+      root.classList.add('no-trans');
       root.dataset.theme = next;
+      void root.offsetWidth;
+      requestAnimationFrame(() => root.classList.remove('no-trans'));
       try { localStorage.setItem('theme', next); } catch (e) { /* the choice just won't persist */ }
     });
   }
@@ -33,13 +36,69 @@
     button.addEventListener('click', async () => {
       try {
         await navigator.clipboard.writeText(button.dataset.copy);
-        button.textContent = 'Copied';
+        button.textContent = button.dataset.copied || 'Copied';
       } catch (e) {
         button.textContent = button.dataset.copy;
       }
       setTimeout(() => { button.textContent = label; }, 1800);
     });
   });
+
+  /* Translation lens: the headline shows the other language inside a circle that follows the pointer */
+  const stack = $('[data-lens]');
+  if (stack && !still) {
+    root.classList.add('lens-on');
+    const s = { x: 0, y: 0, tx: 0, ty: 0, r: 0, tr: 0 };
+    let raf = 0;
+    let touched = false;
+    const radius = () => Math.max(70, Math.min(140, stack.offsetWidth * 0.14));
+    const paint = () => {
+      s.x += (s.tx - s.x) * 0.2;
+      s.y += (s.ty - s.y) * 0.2;
+      s.r += (s.tr - s.r) * 0.16;
+      stack.style.setProperty('--lx', `${s.x}px`);
+      stack.style.setProperty('--ly', `${s.y}px`);
+      stack.style.setProperty('--lr', `${Math.max(0, s.r)}px`);
+      const settled = Math.abs(s.tx - s.x) < 0.3 && Math.abs(s.ty - s.y) < 0.3 && Math.abs(s.tr - s.r) < 0.3;
+      raf = settled ? 0 : requestAnimationFrame(paint);
+    };
+    const kick = () => { if (!raf) raf = requestAnimationFrame(paint); };
+    const aim = (e, jump) => {
+      const rect = stack.getBoundingClientRect();
+      s.tx = e.clientX - rect.left;
+      s.ty = e.clientY - rect.top;
+      if (jump) { s.x = s.tx; s.y = s.ty; }
+      s.tr = radius();
+      kick();
+    };
+    stack.addEventListener('pointerenter', (e) => { touched = true; aim(e, s.r < 2); });
+    stack.addEventListener('pointermove', (e) => { touched = true; aim(e, false); });
+    stack.addEventListener('pointerdown', (e) => { touched = true; aim(e, true); });
+    const hide = () => { s.tr = 0; kick(); };
+    stack.addEventListener('pointerleave', hide);
+    stack.addEventListener('pointercancel', hide);
+    stack.addEventListener('pointerup', (e) => { if (e.pointerType !== 'mouse') setTimeout(hide, 900); });
+
+    // One slow pass on load, so the effect is discovered without instructions
+    setTimeout(() => {
+      if (touched) return;
+      const w = stack.offsetWidth;
+      const line = parseFloat(getComputedStyle($('.hero__line', stack)).lineHeight) || 60;
+      const start = performance.now();
+      const run = (now) => {
+        if (touched) return;
+        const k = Math.min(1, (now - start) / 2200);
+        const ease = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+        s.tx = w * (0.08 + 0.6 * ease);
+        s.ty = line * (0.55 + 0.9 * ease);
+        if (k === 0) { s.x = s.tx; s.y = s.ty; }
+        s.tr = k < 0.85 ? radius() * 0.9 : 0;
+        kick();
+        if (k < 1) requestAnimationFrame(run);
+      };
+      requestAnimationFrame(run);
+    }, 1100);
+  }
 
   /* Image preview that follows the cursor over index rows */
   const peek = $('.peek');
@@ -72,9 +131,9 @@
     });
   }
 
-  /* Reveal case blocks as they enter the viewport */
+  /* Reveal case blocks just before they enter the viewport */
   const reveals = $$('.reveal');
-  if ('IntersectionObserver' in window && !still) {
+  if ('IntersectionObserver' in window) {
     const io = new IntersectionObserver((entries) => {
       entries.forEach((entry) => {
         if (entry.isIntersecting) { entry.target.classList.add('is-in'); io.unobserve(entry.target); }
@@ -84,6 +143,17 @@
   } else {
     reveals.forEach((el) => el.classList.add('is-in'));
   }
+
+  /* Swipe counter for the image carousels on phones */
+  $$('[data-slides]').forEach((track) => {
+    const now = $('[data-slide-now]', track.parentElement);
+    if (!now) return;
+    track.addEventListener('scroll', () => {
+      const first = track.firstElementChild;
+      const step = first ? first.getBoundingClientRect().width + 8 : track.clientWidth;
+      now.textContent = Math.min(track.children.length, Math.round(track.scrollLeft / step) + 1);
+    }, { passive: true });
+  });
 
   /* Case study images: captions from alt text, two images in a paragraph sit side by side */
   $$('.cs__body > p').forEach((p) => {
@@ -127,56 +197,13 @@
   }
 
   /* Reading progress on case studies */
-  const article = $('.cs');
-  if (article) {
-    const header = $('.top__progress');
+  if ($('.cs')) {
+    const bar = $('.top__progress');
     const update = () => {
-      const max = document.documentElement.scrollHeight - innerHeight;
-      header.style.setProperty('--progress', max > 0 ? Math.min(1, scrollY / max) : 0);
+      const max = root.scrollHeight - innerHeight;
+      bar.style.setProperty('--progress', max > 0 ? Math.min(1, scrollY / max) : 0);
     };
     addEventListener('scroll', update, { passive: true });
     update();
-  }
-
-  /* One button, four languages */
-  const lab = $('[data-lab]');
-  if (lab) {
-    const copy = {
-      en: { from: 'From', to: 'To', date: 'Date', a: 'Lisbon', b: 'Porto', d: '14 Mar', go: 'Show trains' },
-      ru: { from: 'Откуда', to: 'Куда', date: 'Дата', a: 'Лиссабон', b: 'Порту', d: '14 марта', go: 'Показать поезда' },
-      de: { from: 'Von', to: 'Nach', date: 'Datum', a: 'Lissabon', b: 'Porto', d: '14. März', go: 'Verbindungen anzeigen' },
-      ja: { from: '出発', to: '到着', date: '日付', a: 'リスボン', b: 'ポルト', d: '3月14日', go: '列車を表示' },
-    };
-    const button = $('[data-lab-button]', lab);
-    const label = $('span', button);
-    const state = $('[data-lab-state]', lab);
-    const status = $('.lab__status', lab);
-    const count = $('[data-lab-count]', lab);
-    let lang = 'en';
-    let width = 'fixed';
-
-    const measure = () => {
-      const cut = width === 'fixed' && label.scrollWidth > label.clientWidth + 1;
-      status.classList.toggle('is-bad', cut);
-      state.textContent = cut ? 'The label is cut off.' : 'The label fits.';
-      count.textContent = copy[lang].go.length;
-    };
-    const render = () => {
-      $$('[data-lab-t]', lab).forEach((el) => { el.textContent = copy[lang][el.dataset.labT]; });
-      lab.lang = lang;
-      button.classList.toggle('is-fixed', width === 'fixed');
-      $$('[data-lang]', lab).forEach((b) => b.setAttribute('aria-pressed', b.dataset.lang === lang));
-      $$('[data-width]', lab).forEach((b) => b.setAttribute('aria-pressed', b.dataset.width === width));
-      measure();
-      setTimeout(measure, 380);
-    };
-    lab.addEventListener('click', (e) => {
-      const b = e.target.closest('[data-lang], [data-width]');
-      if (!b) return;
-      if (b.dataset.lang) lang = b.dataset.lang;
-      if (b.dataset.width) width = b.dataset.width;
-      render();
-    });
-    render();
   }
 })();

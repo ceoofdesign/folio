@@ -3,7 +3,7 @@ title: "TON Learn: learning Web3 inside Telegram"
 name: "TON Learn"
 kind: concept
 order: 6
-status: "Concept"
+state: concept
 work: "Telegram Mini App that teaches Web3 basics"
 period: "2025"
 scale: "Concept"

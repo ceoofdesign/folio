@@ -1,12 +1,23 @@
-{% assign profile = site.data.profile %}
+{% assign home = "/" %}{% if lang == "ja" %}{% assign home = "/ja/" %}{% endif %}
 <header class="top">
-  <a class="top__name" href="{{ '/' | relative_url }}">{{ profile.name }}</a>
-  <p class="top__clock"><span data-clock data-tz="{{ profile.timezone }}">{{ profile.city }}</span></p>
+  <a class="top__name" href="{{ home | relative_url }}">{{ profile.name }}</a>
+  <p class="top__clock"><span data-clock data-tz="{{ profile.timezone }}" data-lang="{{ lang }}">{{ p.city }}</span></p>
   <nav class="top__nav" aria-label="Main">
-    <a href="{{ '/#work' | relative_url }}">Work</a>
-    <a href="{{ '/#about' | relative_url }}">About</a>
-    <a href="mailto:{{ profile.email }}">Email</a>
-    <button type="button" class="top__theme" data-theme-toggle aria-label="Switch colour theme"><span aria-hidden="true"></span></button>
+    <a href="{{ home | append: '#work' | relative_url }}">{{ t.work }}</a>
+    <a href="{{ home | append: '#about' | relative_url }}">{{ t.about }}</a>
+    <a href="mailto:{{ profile.email }}">{{ t.email }}</a>
+    {% if site.ja_published != false %}
+    <span class="lang" role="group" aria-label="Language">
+      {% if lang == "en" %}
+      <span class="lang__item" aria-current="true">EN</span>
+      <a class="lang__item" href="{{ alt_url | relative_url }}" hreflang="ja" lang="ja" aria-label="{{ t.switch_label }}">日本語</a>
+      {% else %}
+      <a class="lang__item" href="{{ alt_url | relative_url }}" hreflang="en" lang="en" aria-label="{{ t.switch_label }}">EN</a>
+      <span class="lang__item" aria-current="true">日本語</span>
+      {% endif %}
+    </span>
+    {% endif %}
+    <button type="button" class="top__theme" data-theme-toggle aria-label="{{ t.theme }}"><span aria-hidden="true"></span></button>
   </nav>
   <div class="top__progress" aria-hidden="true"></div>
 </header>

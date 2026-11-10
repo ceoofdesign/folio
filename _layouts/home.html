@@ -1,0 +1,125 @@
+---
+layout: default
+---
+{% assign lang = page.lang | default: "en" %}
+{% assign t = site.data.i18n[lang] %}
+{% assign profile = site.data.profile %}
+{% assign p = profile[lang] %}
+{% if lang == "ja" %}{% assign other = profile.en %}{% assign other_lang = "en" %}{% else %}{% assign other = profile.ja %}{% assign other_lang = "ja" %}{% endif %}
+{% assign source = site.work | sort: "order" %}
+
+<section class="hero" aria-label="{{ profile.name }}, {{ p.role }}">
+  <div class="hero__stack" data-lens>
+    <h1 class="hero__line">{{ p.headline }}</h1>
+    <p class="hero__alt" lang="{{ other_lang }}" aria-hidden="true">{{ other.headline }}</p>
+    <span class="hero__ring" aria-hidden="true"></span>
+  </div>
+  <p class="hero__hint" aria-hidden="true"><span class="hint-fine">{{ t.lens_hint }}</span><span class="hint-touch">{{ t.lens_hint_touch }}</span></p>
+  <dl class="hero__facts">
+    {% for f in p.facts %}<div><dt>{{ f.label }}</dt><dd>{{ f.value }}</dd></div>{% endfor %}
+  </dl>
+</section>
+
+<section class="board" aria-label="{{ t.index }}">
+  <div class="board__head" aria-hidden="true">
+    {% for col in t.cols %}<span>{{ col }}</span>{% endfor %}
+  </div>
+  <ol class="board__list">
+    {% assign n = 0 %}
+    {% for c in source %}{% if c.kind == "product" %}
+    {% assign n = n | plus: 1 %}
+    {% if lang == "ja" %}{% assign x = site.work_ja | where: "slug", c.slug | first %}{% assign url = c.url | prepend: "/ja" %}{% else %}{% assign x = c %}{% assign url = c.url %}{% endif %}
+    {% unless x %}{% assign x = c %}{% endunless %}
+    <li>
+      <a class="row" href="{{ url | relative_url }}" data-peek="{{ c.cover | relative_url }}">
+        <span class="row__no">{% if n < 10 %}0{% endif %}{{ n }}</span>
+        <span class="row__name">{{ x.name }}</span>
+        <span class="row__work">{{ x.work }}</span>
+        <span class="row__status is-{{ c.state }}">{{ t.state[c.state] }}</span>
+        <span class="row__period">{{ x.period }}</span>
+        <span class="row__scale">{{ x.scale }}</span>
+      </a>
+    </li>
+    {% endif %}{% endfor %}
+  </ol>
+</section>
+
+<section class="work" id="work" aria-label="{{ t.selected }}">
+  {% assign n = 0 %}
+  {% for c in source %}{% if c.kind == "product" %}
+  {% assign n = n | plus: 1 %}
+  {% if lang == "ja" %}{% assign x = site.work_ja | where: "slug", c.slug | first %}{% assign url = c.url | prepend: "/ja" %}{% else %}{% assign x = c %}{% assign url = c.url %}{% endif %}
+  {% unless x %}{% assign x = c %}{% endunless %}
+  <article class="case reveal">
+    <div class="case__meta">
+      <p class="case__no">{% if n < 10 %}0{% endif %}{{ n }}</p>
+      <h2><a href="{{ url | relative_url }}">{{ x.name }}</a></h2>
+      <p class="case__lede">{{ x.lede }}</p>
+      <dl class="case__facts">
+        <div><dt>{{ t.role }}</dt><dd>{{ x.role }}</dd></div>
+        <div><dt>{{ t.period }}</dt><dd>{{ x.period }}</dd></div>
+        <div><dt>{{ t.scale }}</dt><dd>{{ x.scale }}</dd></div>
+      </dl>
+      <a class="more" href="{{ url | relative_url }}">{{ t.read }} <span aria-hidden="true">→</span></a>
+    </div>
+    <div class="case__media">
+      <a class="slides" href="{{ url | relative_url }}" tabindex="-1" aria-hidden="true" data-slides>
+        <img src="{{ c.cover | relative_url }}" alt="" {% if n == 1 %}fetchpriority="high"{% else %}loading="lazy"{% endif %} decoding="async">
+        {% for th in c.thumbs %}<img src="{{ th | relative_url }}" alt="" loading="lazy" decoding="async">{% endfor %}
+      </a>
+      {% if c.thumbs %}<p class="slides__count" aria-hidden="true"><span data-slide-now>1</span> {{ t.slides }} {{ c.thumbs.size | plus: 1 }}</p>{% endif %}
+    </div>
+  </article>
+  {% endif %}{% endfor %}
+</section>
+
+<section class="listing" aria-labelledby="concepts">
+  <h2 class="label" id="concepts">{{ t.concepts }}</h2>
+  <ul>
+    {% for c in source %}{% if c.kind == "concept" %}
+    {% if lang == "ja" %}{% assign x = site.work_ja | where: "slug", c.slug | first %}{% assign url = c.url | prepend: "/ja" %}{% else %}{% assign x = c %}{% assign url = c.url %}{% endif %}
+    {% unless x %}{% assign x = c %}{% endunless %}
+    <li>
+      <a class="line" href="{{ url | relative_url }}" data-peek="{{ c.cover | relative_url }}">
+        <span class="line__type">{{ t.state[c.state] }}</span>
+        <span class="line__title">{{ x.name }}</span>
+        <span class="line__detail">{{ x.work }}</span>
+        <span class="line__date">{{ x.period }}</span>
+      </a>
+    </li>
+    {% endif %}{% endfor %}
+  </ul>
+</section>
+
+<section class="listing" aria-labelledby="notes">
+  <h2 class="label" id="notes">{{ t.notes }}</h2>
+  <ul>
+    {% for item in site.data.notes %}
+    <li>
+      <a class="line" href="{{ item.link }}" rel="noopener">
+        {% if lang == "ja" %}
+        <span class="line__type">{{ item.type_ja | default: item.type }}</span>
+        <span class="line__title">{{ item.title_ja | default: item.title }}</span>
+        <span class="line__detail">{{ item.detail_ja | default: item.detail }}</span>
+        <span class="line__date">{{ item.date_ja | default: item.date }}</span>
+        {% else %}
+        <span class="line__type">{{ item.type }}</span>
+        <span class="line__title">{{ item.title }}</span>
+        <span class="line__detail">{{ item.detail }}</span>
+        <span class="line__date">{{ item.date }}</span>
+        {% endif %}
+      </a>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+
+<section class="about" id="about" aria-labelledby="about-title">
+  <h2 class="label" id="about-title">{{ t.about_title }}</h2>
+  <div class="about__text">
+    {% for para in p.about %}<p>{{ para }}</p>{% endfor %}
+  </div>
+  <dl class="about__facts">
+    {% for f in p.about_facts %}<div><dt>{{ f.label }}</dt><dd>{{ f.value }}</dd></div>{% endfor %}
+  </dl>
+</section>

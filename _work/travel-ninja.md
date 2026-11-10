@@ -3,7 +3,7 @@ title: "Travel Ninja: hotel booking built from scratch"
 name: "Travel Ninja"
 kind: product
 order: 4
-status: "Shipped"
+state: shipped
 work: "Search, hotel page, rooms, checkout"
 period: "2023–2026"
 scale: "Built from zero"

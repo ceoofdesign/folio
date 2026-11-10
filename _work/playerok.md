@@ -3,7 +3,7 @@ title: "Playerok: the storefront of a marketplace for gamers"
 name: "Playerok"
 kind: product
 order: 1
-status: "Now"
+state: now
 work: "Home, seller landing, game pages"
 period: "2026–now"
 scale: "4M+ users"

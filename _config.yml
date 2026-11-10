@@ -9,14 +9,35 @@ collections:
   work:
     output: true
     permalink: /work/:name/
+  work_ja:
+    output: true
+    permalink: /ja/work/:name/
 
 defaults:
+  - scope:
+      path: ""
+    values:
+      lang: en
   - scope:
       path: ""
       type: work
     values:
       layout: case
+      lang: en
+  - scope:
+      path: ""
+      type: work_ja
+    values:
+      layout: case
+      lang: ja
+  - scope:
+      path: "ja"
+    values:
+      lang: ja
 
 exclude:
   - README.md
   - .gitignore
+
+# Показывать переключатель языка. Поставьте false, пока японские тексты не вычитаны.
+ja_published: true
