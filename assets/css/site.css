@@ -378,6 +378,7 @@ html:lang(ja) .label, html:lang(ja) dt, html:lang(ja) .board__head, html:lang(ja
   .next__arrow { display: none; }
   .peek { display: none; }
   .hud__n { font-size: 1.875rem; }
+  .hud__score { flex-direction: column; align-items: flex-start; gap: .2rem; }
   .hud__side { gap: .75rem; }
   .over { padding: 1rem; gap: .65rem; }
   .ranks li, .ranks__head { grid-template-columns: 1.75rem minmax(0, 1.1fr) minmax(0, 1fr) 2.75rem; gap: .5rem; }
