@@ -1,128 +1,151 @@
-// Physics: real UI components fall onto the canvas; drag and throw them. Uses Matter.js for collisions.
-(window.HeroGames = window.HeroGames || {}).physics = (stage, kit) => {
-  const canvas = stage.querySelector('canvas');
-  canvas.setAttribute('aria-label', kit.t('physics_hint'));
+// Physics: real UI components fall into the zone. Stack them so the pile reaches above the fold line
+// and stays there for two seconds. Three levels, the fold moves up each time, the clock is running.
+(window.HeroGames = window.HeroGames || {}).physics = (kit) => {
   const boot = () => {
     const { Engine, Bodies, Body, Composite, Constraint, Query, Vector } = window.Matter;
+    const FOLD = [0.34, 0.48, 0.6];       // height of the fold above the floor, share of the zone
+    const TIME = 45;                       // seconds per level
+    const HOLD = 2;                        // seconds the pile has to stay above the fold
     let W = 0;
     let H = 0;
+    let Z;
     let C = kit.colors();
     const engine = Engine.create({ gravity: { y: 1 } });
     const world = engine.world;
     const walls = [];
-    const items = [];
+    let items = [];
     let grab = null;
     let touched = false;
-    let spawned = false;
+    let level;
+    let clock;
+    let hold;
+    let state;
+    let started;
+    let total;
+    let pending = [];
 
-    const S = () => (W < 520 ? 0.78 : 1);
+    const S = () => (W < 900 ? 0.8 : 1);
     const LIB = [
       { kind: 'button', text: 'Book now', w: 132, h: 44, r: 22, name: 'Button / Primary' },
+      { kind: 'card', w: 150, h: 104, r: 10, name: 'Card / Hotel' },
+      { kind: 'input', w: 190, h: 44, r: 8, name: 'Input / Filled' },
       { kind: 'chip', text: 'Tokyo', name: 'Chip' },
       { kind: 'toggle', w: 60, h: 32, r: 16, name: 'Toggle / On' },
-      { kind: 'input', text: 'From  Lisbon', w: 190, h: 44, r: 8, name: 'Input / Filled' },
       { kind: 'avatar', text: 'YL', rad: 26, name: 'Avatar' },
       { kind: 'chip', text: '4M+ users', name: 'Chip' },
-      { kind: 'card', w: 150, h: 104, r: 10, name: 'Card / Hotel' },
-      { kind: 'check', w: 34, h: 34, r: 8, name: 'Checkbox' },
       { kind: 'button2', text: 'Search', w: 112, h: 40, r: 8, name: 'Button / Secondary' },
+      { kind: 'price', text: '€ 184', w: 96, h: 40, r: 8, name: 'Price' },
+      { kind: 'check', w: 34, h: 34, r: 8, name: 'Checkbox' },
       { kind: 'chip', text: 'Belgrade', name: 'Chip' },
       { kind: 'slider', w: 160, h: 30, r: 15, name: 'Slider' },
       { kind: 'badge', text: 'New', w: 52, h: 26, r: 13, name: 'Badge' },
       { kind: 'chip', text: 'Design system', name: 'Chip' },
       { kind: 'radio', rad: 17, name: 'Radio' },
       { kind: 'chip', text: '2,000+ components', name: 'Chip' },
-      { kind: 'price', text: '€ 184', w: 96, h: 40, r: 8, name: 'Price' },
     ];
+    const floor = () => Z.y + Z.h - 16;
+    const foldY = () => floor() - Z.h * FOLD[Math.min(level, FOLD.length - 1)];
 
-    const ctx = kit.fit(canvas, (w, h) => {
+    const ctx = kit.fit((w, h) => {
       W = w; H = h;
+      Z = kit.zone();
       walls.forEach((b) => Composite.remove(world, b));
       walls.length = 0;
       const t = 80;
       walls.push(
-        Bodies.rectangle(W / 2, H + t / 2, W * 3, t, { isStatic: true }),
-        Bodies.rectangle(-t / 2, H / 2 - H, t, H * 4, { isStatic: true }),
-        Bodies.rectangle(W + t / 2, H / 2 - H, t, H * 4, { isStatic: true }),
+        Bodies.rectangle(Z.x + Z.w / 2, floor() + t / 2, Z.w + t * 2, t, { isStatic: true, friction: 0.8 }),
+        Bodies.rectangle(Z.x - t / 2, floor() - Z.h * 2, t, Z.h * 5, { isStatic: true }),
+        Bodies.rectangle(Z.x + Z.w + t / 2, floor() - Z.h * 2, t, Z.h * 5, { isStatic: true }),
       );
       Composite.add(world, walls);
-      items.forEach((b) => { if (b.position.x > W - 10) Body.setPosition(b, { x: W - 40, y: b.position.y }); });
     });
 
     const make = (spec, x, y) => {
       const s = S();
       const d = { ...spec };
-      let body;
       if (d.kind === 'chip') {
         ctx.font = kit.sans(14 * s, 400);
         d.w = (ctx.measureText(d.text).width + 28 * s) / s;
         d.h = 34;
         d.r = 17;
       }
-      const opts = { restitution: 0.3, friction: 0.5, frictionAir: 0.012, density: 0.0018 };
-      if (d.rad) body = Bodies.circle(x, y, d.rad * s, opts);
-      else body = Bodies.rectangle(x, y, d.w * s, d.h * s, { ...opts, chamfer: { radius: Math.min(d.r * s, (d.h * s) / 2 - 0.5) } });
+      const opts = { restitution: 0.15, friction: 0.7, frictionStatic: 0.9, frictionAir: 0.015, density: 0.0018 };
+      const body = d.rad
+        ? Bodies.circle(x, y, d.rad * s, opts)
+        : Bodies.rectangle(x, y, d.w * s, d.h * s, { ...opts, chamfer: { radius: Math.min(d.r * s, (d.h * s) / 2 - 0.5) } });
       body.spec = d;
-      Body.setAngle(body, (Math.random() - 0.5) * 0.8);
-      Body.setAngularVelocity(body, (Math.random() - 0.5) * 0.06);
+      Body.setAngle(body, (Math.random() - 0.5) * 0.6);
       items.push(body);
       Composite.add(world, body);
-      if (items.length > 34) Composite.remove(world, items.shift());
-      kit.score(kit.t('physics_score', items.length));
-      return body;
     };
-
-    const spawnAll = () => {
-      if (spawned) return;
-      spawned = true;
-      LIB.forEach((spec, k) => {
-        const delay = kit.still ? 0 : k * 140;
-        setTimeout(() => make(spec, W * (0.15 + Math.random() * 0.7), -60 - (kit.still ? k * 50 : 0)), delay);
+    const pour = (specs) => {
+      specs.forEach((spec, k) => {
+        pending.push(setTimeout(() => make(spec, Z.x + Z.w * (0.15 + Math.random() * 0.7), Z.y - 60 - (kit.still ? k * 40 : 0)), kit.still ? 0 : k * 120));
       });
     };
-    new IntersectionObserver(([e]) => { if (e.isIntersecting) spawnAll(); }, { threshold: 0.3 }).observe(canvas);
 
-    const point = (e) => { const r = canvas.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
-    canvas.addEventListener('pointerdown', (e) => {
-      if (e.button !== 0) return;
-      const p = point(e);
+    const hud = () => {
+      if (state === 'over') return;
+      const left = Math.max(0, Math.ceil(clock));
+      kit.hud(kit.t('physics_goal', level + 1), started ? kit.t('physics_time', left) : kit.t('physics_hint'));
+    };
+    const reset = () => {
+      pending.forEach(clearTimeout);
+      pending = [];
+      items.forEach((b) => Composite.remove(world, b));
+      items = [];
+      level = 0;
+      clock = TIME;
+      hold = 0;
+      total = 0;
+      state = 'play';
+      started = false;
+      kit.banner(null);
+      pour(LIB.slice(0, 10));
+      hud();
+    };
+
+    let seen = false;
+    new IntersectionObserver(([e]) => { if (e.isIntersecting && !seen) { seen = true; reset(); } }, { threshold: 0.3 }).observe(kit.canvas);
+
+    kit.canvas.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0 || !items.length) return;
+      const p = kit.point(e);
+      if (state === 'over') { if (kit.inZone(p)) reset(); return; }
       const hit = Query.point(items, p)[0];
-      if (!touched) { touched = true; kit.hint(''); }
-      if (!hit) {
-        // A click on empty canvas drops a new chip right there
-        make(LIB[Math.floor(Math.random() * LIB.length)], p.x, Math.max(20, p.y));
-        return;
-      }
+      if (!hit) return;
+      if (!touched) touched = true;
+      started = true;
       const local = Vector.rotate(Vector.sub(p, hit.position), -hit.angle);
-      grab = Constraint.create({ pointA: p, bodyB: hit, pointB: local, stiffness: 0.18, damping: 0.08, length: 0 });
+      grab = Constraint.create({ pointA: p, bodyB: hit, pointB: local, stiffness: 0.2, damping: 0.1, length: 0 });
       Composite.add(world, grab);
-      canvas.setPointerCapture(e.pointerId);
-      canvas.style.cursor = 'grabbing';
+      kit.canvas.setPointerCapture(e.pointerId);
+      kit.canvas.style.cursor = 'grabbing';
     });
-    canvas.addEventListener('pointermove', (e) => {
-      const p = point(e);
+    kit.canvas.addEventListener('pointermove', (e) => {
+      const p = kit.point(e);
       if (grab) { grab.pointA = p; return; }
-      if (kit.fine) canvas.style.cursor = Query.point(items, p).length ? 'grab' : 'copy';
+      if (kit.fine) kit.canvas.style.cursor = Query.point(items, p).length ? 'grab' : 'default';
     });
-    const drop = () => { if (grab) { Composite.remove(world, grab); grab = null; canvas.style.cursor = 'grab'; } };
-    canvas.addEventListener('pointerup', drop);
-    canvas.addEventListener('pointercancel', drop);
-    canvas.addEventListener('keydown', (e) => {
+    const drop = () => {
+      if (!grab) return;
+      const b = grab.bodyB;
+      // Let go gently, so a component lands where it was placed instead of flying off
+      Body.setVelocity(b, { x: b.velocity.x * 0.35, y: b.velocity.y * 0.35 });
+      Body.setAngularVelocity(b, b.angularVelocity * 0.3);
+      Composite.remove(world, grab);
+      grab = null;
+      kit.canvas.style.cursor = 'grab';
+    };
+    kit.canvas.addEventListener('pointerup', drop);
+    kit.canvas.addEventListener('pointercancel', drop);
+    kit.canvas.addEventListener('keydown', (e) => {
       if (e.key !== ' ' && e.key !== 'Enter') return;
       e.preventDefault();
-      items.forEach((b) => Body.applyForce(b, b.position, { x: (Math.random() - 0.5) * 0.04 * b.mass, y: -0.06 * b.mass }));
+      if (state === 'over') { reset(); return; }
+      items.forEach((b) => Body.applyForce(b, b.position, { x: (Math.random() - 0.5) * 0.03 * b.mass, y: -0.05 * b.mass }));
     });
-    // A quick scroll gives everything a small jolt
-    let lastY = scrollY;
-    addEventListener('scroll', () => {
-      const d = scrollY - lastY;
-      lastY = scrollY;
-      if (kit.still || Math.abs(d) < 18) return;
-      items.forEach((b) => Body.applyForce(b, b.position, { x: 0, y: -Math.min(0.02, Math.abs(d) * 0.0004) * b.mass }));
-    }, { passive: true });
-    matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { C = kit.colors(); });
-    new MutationObserver(() => { C = kit.colors(); }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
-    kit.hint(kit.t('physics_hint'));
+    kit.onTheme(() => { C = kit.colors(); });
 
     const rr = (x, y, w, h, r) => { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); };
     const drawItem = (b) => {
@@ -165,30 +188,85 @@
       return { w, h };
     };
 
+    let lastHud = -1;
     kit.loop((dt) => {
-      if (!W) return;
+      if (!W || level === undefined) return;
       Engine.update(engine, (1000 / 60) * Math.min(dt, 2));
       items.forEach((b) => {
-        // Keep throws inside the frame: cap speed, and drop anything that escaped back in from the top
         const v = b.velocity;
         const sp = Math.hypot(v.x, v.y);
-        if (sp > 28) Body.setVelocity(b, { x: (v.x / sp) * 28, y: (v.y / sp) * 28 });
+        if (sp > 24) Body.setVelocity(b, { x: (v.x / sp) * 24, y: (v.y / sp) * 24 });
         const p = b.position;
-        if (p.x < -60 || p.x > W + 60 || p.y > H + 120 || p.y < -H * 1.5) {
-          Body.setPosition(b, { x: W * (0.2 + Math.random() * 0.6), y: -60 });
+        if (p.x < Z.x - 80 || p.x > Z.x + Z.w + 80 || p.y > floor() + 120 || p.y < Z.y - Z.h * 1.5) {
+          Body.setPosition(b, { x: Z.x + Z.w * (0.2 + Math.random() * 0.6), y: Z.y - 60 });
           Body.setVelocity(b, { x: 0, y: 0 });
         }
       });
+
+      // Goal: the highest resting component is above the fold, nothing in hand
+      let top = Infinity;
+      items.forEach((b) => {
+        if (grab && grab.bodyB === b) return;
+        if (Math.hypot(b.velocity.x, b.velocity.y) > 0.5 || Math.abs(b.angularVelocity) > 0.05) return;
+        top = Math.min(top, b.bounds.min.y);
+      });
+      if (state === 'play' && started) {
+        clock -= dt / 60;
+        total += dt / 60;
+        if (!grab && top < foldY()) hold += dt / 60; else hold = 0;
+        if (hold >= HOLD) {
+          hold = 0;
+          level += 1;
+          if (level >= FOLD.length) {
+            state = 'over';
+            kit.banner(kit.t('physics_win'), `${kit.t('physics_win_sub', Math.round(total))} · ${kit.t('physics_result')}`);
+          } else {
+            clock = TIME;
+            kit.banner(kit.t('physics_level'), kit.t('physics_level_sub', level));
+            setTimeout(() => { if (state === 'play') kit.banner(null); }, 1800);
+            pour(LIB.slice(10 + (level - 1) * 3, 13 + (level - 1) * 3));
+          }
+        } else if (clock <= 0) {
+          state = 'over';
+          kit.banner(kit.t('physics_lose'), kit.t('physics_result'));
+        }
+      }
+      const sec = Math.ceil(clock);
+      if (sec !== lastHud) { lastHud = sec; hud(); }
+
       ctx.clearRect(0, 0, W, H);
+      kit.dots(ctx, W, H, C);
+
+      // The fold line
+      const fy = foldY();
+      ctx.strokeStyle = C.signal;
+      ctx.lineWidth = 1;
+      ctx.setLineDash([6, 4]);
+      ctx.beginPath();
+      ctx.moveTo(Z.x, fy);
+      ctx.lineTo(Z.x + Z.w, fy);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.font = kit.mono(10);
+      ctx.fillStyle = C.signal;
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'bottom';
+      ctx.fillText(kit.t('physics_fold'), Z.x, fy - 4);
+      if (hold > 0) {
+        ctx.textAlign = 'right';
+        ctx.fillText(kit.t('physics_hold', (HOLD - hold).toFixed(1)), Z.x + Z.w, fy - 4);
+        ctx.fillRect(Z.x, fy - 1, Z.w * (hold / HOLD), 2);
+      }
+      // Floor of the frame
       ctx.fillStyle = C.line;
-      for (let y = 9; y < H; y += 18) for (let x = 9; x < W; x += 18) ctx.fillRect(x, y, 1.2, 1.2);
+      ctx.fillRect(Z.x, floor(), Z.w, 1);
+
       items.forEach((b) => {
         ctx.save();
         ctx.translate(b.position.x, b.position.y);
         ctx.rotate(b.angle);
         const { w, h } = drawItem(b);
         if (grab && grab.bodyB === b) {
-          // Figma selection around the component being dragged
           ctx.strokeStyle = C.select;
           ctx.lineWidth = 1.5;
           ctx.strokeRect(-w / 2 - 3, -h / 2 - 3, w + 6, h + 6);

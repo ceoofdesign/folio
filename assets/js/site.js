@@ -46,7 +46,7 @@
 
   /* 3D ring of product screens: spins slowly, follows drag and scroll, a click opens the case */
   const hero = $('.hero[data-hero]');
-  const variants = ['ring', 'stack', 'city', 'physics'];
+  const variants = ['ring', 'tower', 'city', 'physics'];
   let variant = hero ? hero.dataset.hero : 'ring';
   try {
     const asked = new URLSearchParams(location.search).get('hero');
@@ -55,23 +55,30 @@
   } catch (e) { /* storage blocked: use the configured variant */ }
   $$('[data-pick]').forEach((a) => a.setAttribute('aria-current', a.dataset.pick === variant ? 'true' : 'false'));
 
-  /* Canvas games in the hero. Each one lives in its own file and loads only when chosen. */
+  /* Games in the hero. The whole first screen becomes a Figma-like canvas; the game plays
+     in a zone beside the text (or below it on phones), so the headline stays readable. */
   const stage = $('[data-stage]');
   if (hero && stage && variant !== 'ring') {
-    hero.classList.add('hero--game');
+    hero.classList.add('hero--game', `hero--${variant}`);
     stage.hidden = false;
     const ringEl = $('[data-orbit]');
     if (ringEl) ringEl.hidden = true;
     let strings = {};
     try { strings = JSON.parse(stage.dataset.strings || '{}'); } catch (e) { /* fall back to keys */ }
     const touch = matchMedia('(hover: none)').matches;
+    const canvas = $('canvas', stage);
+    const text = $('.hero__text', hero);
+    const hud = { goal: $('[data-hud-goal]', stage), meta: $('[data-hud-meta]', stage), box: $('.stage__hud', stage) };
+    const banner = { box: $('.stage__banner', stage), title: $('[data-banner-title]', stage), sub: $('[data-banner-sub]', stage) };
+    let zone = { x: 0, y: 0, w: 0, h: 0 };
     const kit = {
       still,
       fine,
       touch,
-      t: (key, n) => {
+      canvas,
+      t: (key, n, m) => {
         const k = touch && strings[`${key}_touch`] ? `${key}_touch` : key;
-        return (strings[k] || key).replace('{n}', n);
+        return (strings[k] || key).replace('{n}', n).replace('{m}', m);
       },
       colors: () => {
         const cs = getComputedStyle(root);
@@ -80,12 +87,30 @@
       },
       load: (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } },
       save: (k, val) => { try { localStorage.setItem(k, val); } catch (e) { /* not saved */ } },
-      hint: (text) => { $('[data-stage-hint]', stage).textContent = text; },
-      score: (text) => { $('[data-stage-score]', stage).textContent = text; },
-      mono: (px) => `400 ${px}px "IBM Plex Mono", ui-monospace, monospace`,
+      mono: (px) => `400 ${px}px "IBM Plex Mono", "IBM Plex Sans JP", ui-monospace, monospace`,
       sans: (px, w = 400) => `${w} ${px}px Geologica, "IBM Plex Sans JP", system-ui, sans-serif`,
-      // Keeps the canvas sharp on dense screens and calls back with its size in CSS pixels
-      fit: (canvas, cb) => {
+      zone: () => zone,
+      hud: (goal, meta) => { hud.goal.textContent = goal; hud.meta.textContent = meta; },
+      banner: (title, sub) => {
+        banner.box.hidden = !title;
+        if (title) { banner.title.textContent = title; banner.sub.textContent = sub || ''; }
+      },
+      // Click or tap inside the game zone, or Space and Enter on the focused canvas
+      onAct: (fn) => {
+        hero.addEventListener('click', (e) => {
+          if (e.target.closest('a, button')) return;
+          const r = canvas.getBoundingClientRect();
+          const p = { x: e.clientX - r.left, y: e.clientY - r.top };
+          if (p.x >= zone.x && p.x <= zone.x + zone.w && p.y >= zone.y && p.y <= zone.y + zone.h) fn(p);
+        });
+        canvas.addEventListener('keydown', (e) => {
+          if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); fn(null); }
+        });
+      },
+      point: (e) => { const r = canvas.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; },
+      inZone: (p) => p.x >= zone.x && p.x <= zone.x + zone.w && p.y >= zone.y && p.y <= zone.y + zone.h,
+      // Keeps the canvas sharp, measures the play zone and calls back on every resize
+      fit: (cb) => {
         const ctx = canvas.getContext('2d');
         const apply = () => {
           const r = canvas.getBoundingClientRect();
@@ -93,13 +118,30 @@
           canvas.width = Math.round(r.width * dpr);
           canvas.height = Math.round(r.height * dpr);
           ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-          cb(r.width, r.height, dpr);
+          const tr = text.getBoundingClientRect();
+          const gutter = parseFloat(getComputedStyle(hero).paddingInlineEnd) || 16;
+          if (r.width >= 900) {
+            const x = tr.right - r.left + Math.max(24, r.width * 0.03);
+            zone = { x, y: 0, w: r.width - x - gutter, h: r.height };
+          } else {
+            const y = tr.bottom - r.top + 16;
+            zone = { x: gutter, y, w: r.width - gutter * 2, h: r.height - y };
+          }
+          hud.box.style.cssText = `left:${zone.x}px; top:${zone.y + 16}px; width:${zone.w}px`;
+          banner.box.style.cssText = `left:${zone.x}px; top:${zone.y}px; width:${zone.w}px; height:${zone.h}px`;
+          cb(r.width, r.height);
         };
         new ResizeObserver(apply).observe(canvas);
         apply();
         return ctx;
       },
-      // Runs the frame callback only while the stage is on screen
+      // A faint dot grid across the whole first screen, like an empty Figma canvas
+      dots: (ctx, W, H, C, offY = 0) => {
+        ctx.fillStyle = C.line;
+        const o = ((offY % 20) + 20) % 20;
+        for (let y = o; y < H; y += 20) for (let x = 10; x < W; x += 20) ctx.fillRect(x, y, 1, 1);
+      },
+      // Runs the frame callback only while the hero is on screen
       loop: (fn) => {
         let on = true;
         let raf = 0;
@@ -116,9 +158,13 @@
         }).observe(stage);
         raf = requestAnimationFrame(tick);
       },
+      onTheme: (fn) => {
+        matchMedia('(prefers-color-scheme: dark)').addEventListener('change', fn);
+        new MutationObserver(fn).observe(root, { attributes: true, attributeFilter: ['data-theme'] });
+      },
     };
-    $('[data-stage-title]', stage).textContent = kit.t(`${variant}_title`);
-    const start = () => window.HeroGames && window.HeroGames[variant] && window.HeroGames[variant](stage, kit);
+    canvas.setAttribute('aria-label', kit.t(`${variant}_aria`));
+    const start = () => window.HeroGames && window.HeroGames[variant] && window.HeroGames[variant](kit);
     const script = document.createElement('script');
     script.src = `${stage.dataset.base}hero-${variant}.js`;
     script.onload = start;

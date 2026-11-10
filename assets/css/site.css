@@ -124,18 +124,21 @@ button { transition: scale .15s ease-out; }
 @property --lift { syntax: "<length>"; inherits: false; initial-value: 0px; }
 @media (hover: hover) { .orbit-on .orbit__card:hover { --lift: 40px; } }
 
-/* Hero with a canvas game: text on the left, a Figma-like frame on the right */
-.hero--game { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: clamp(1.5rem, 4vw, 4rem); align-items: center; min-height: calc(100svh - 3.5rem); padding-block: clamp(1.5rem, 4vh, 3rem); }
+/* Hero with a game: the whole first screen is the canvas, text sits on top of it on the left */
+.hero--game { position: relative; display: flex; align-items: center; min-height: calc(100svh - 3.5rem); padding-block: clamp(2rem, 6vh, 4rem); }
+.hero--game .hero__text { position: relative; z-index: 1; width: min(44%, 36rem); }
 .hero--game h1 { font-size: clamp(1.75rem, 3vw, 3rem); }
 html:lang(ja) .hero--game h1 { font-size: clamp(1.5rem, 2.6vw, 2.6rem); }
-.stage { min-width: 0; }
-.stage__frame { position: relative; padding-top: 1.5rem; }
-.stage__tab { position: absolute; top: 0; inset-inline-start: 0; display: flex; align-items: center; gap: .4rem; font: 400 .75rem/1 var(--mono); color: var(--ink-2); }
-.stage__icon { width: .55rem; height: .55rem; border: 1px solid currentColor; rotate: 45deg; }
-.stage__canvas { display: block; width: 100%; height: clamp(360px, 64svh, 640px); background: var(--plate); outline: 1px solid var(--img-edge); outline-offset: -1px; touch-action: pan-y; -webkit-tap-highlight-color: transparent; }
-.stage__canvas:focus-visible { outline: 2px solid var(--signal); outline-offset: 3px; }
-.stage__bar { display: flex; justify-content: space-between; gap: 1rem; margin-top: .6rem; font: 400 .75rem/1.4 var(--mono); color: var(--ink-2); font-variant-numeric: tabular-nums; }
-.stage__bar [data-stage-score] { color: var(--ink); }
+.stage { position: absolute; inset: 0; z-index: 0; }
+.stage__canvas { display: block; width: 100%; height: 100%; touch-action: pan-y; -webkit-tap-highlight-color: transparent; outline: none; }
+.stage__canvas:focus-visible { box-shadow: inset 0 0 0 2px var(--signal); }
+.stage__hud { position: absolute; display: flex; justify-content: space-between; gap: 1rem; font: 400 .75rem/1.4 var(--mono); color: var(--ink-2); font-variant-numeric: tabular-nums; pointer-events: none; }
+.stage__hud [data-hud-meta] { color: var(--ink); text-align: end; }
+.stage__banner { position: absolute; display: grid; place-content: center; text-align: center; gap: .5rem; pointer-events: none; padding: 1rem; }
+.stage__banner:not([hidden]) { animation: enter .3s var(--ease) both; }
+.stage__title { font-size: clamp(1.5rem, 2.6vw, 2.25rem); font-weight: 300; letter-spacing: -.02em; line-height: 1.15; text-wrap: balance; }
+.stage__sub { font: 400 .75rem/1.4 var(--mono); color: var(--ink-2); }
+.hero--tower .stage__canvas, .hero--city .stage__canvas { cursor: pointer; }
 
 /* Temporary switcher for comparing hero variants */
 .picker { position: fixed; z-index: 40; inset-inline: 0; bottom: 1rem; margin-inline: auto; width: max-content; display: flex; align-items: center; gap: .25rem; padding: .25rem; background: var(--ink); color: var(--paper); border-radius: 999px; font: 400 .75rem/1 var(--mono); box-shadow: 0 8px 24px rgb(0 0 0 / .18); }
@@ -300,6 +303,10 @@ html:lang(ja) .label, html:lang(ja) dt, html:lang(ja) .board__head, html:lang(ja
 ::view-transition-old(root), ::view-transition-new(root) { animation-duration: .2s; }
 
 /* Narrower screens */
+@media (max-width: 899px) {
+  .hero--game { display: block; min-height: 0; padding-bottom: calc(min(64svh, 560px) + 1rem); }
+  .hero--game .hero__text { width: auto; }
+}
 @media (max-width: 1020px) {
   .board__head, .row { grid-template-columns: 2.25rem minmax(0, 1.2fr) 6.5rem 7rem minmax(7rem, .8fr); }
   .row__work, .board__head span:nth-child(3) { display: none; }
@@ -325,8 +332,6 @@ html:lang(ja) .label, html:lang(ja) dt, html:lang(ja) .board__head, html:lang(ja
   .next__arrow { display: none; }
   .peek { display: none; }
   .orbit { --cw: 64vw; }
-  .hero--game { grid-template-columns: minmax(0, 1fr); min-height: 0; }
-  .stage__canvas { height: 58svh; }
   .orbit-on .orbit { perspective: 1000px; }
   .orbit-on .orbit__caption { grid-template-columns: auto 1fr; }
   .orbit__meta { grid-column: 1 / -1; text-align: start; }
