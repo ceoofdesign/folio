@@ -43,6 +43,6 @@ exclude:
 ja_published: true
 
 # Вариант первого экрана: ring, tower, city или physics
-hero: ring
+hero: tower
 # Временный переключатель вариантов внизу экрана. Выключить перед показом рекрутёрам.
 hero_picker: true

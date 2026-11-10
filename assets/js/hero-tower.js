@@ -21,7 +21,7 @@
   let fall;
   let debris;
   let fx;
-  let amp;
+  const tilt = { a: 0, v: 0 };
   let t = 0;
   let cam;
   const base = { dip: 0, v: 0 };
@@ -65,7 +65,8 @@
     fall = null;
     debris = [];
     fx = [];
-    amp = 0;
+    tilt.a = 0;
+    tilt.v = 0;
     cam = 0;
     base.dip = 0;
     base.v = 0;
@@ -89,8 +90,13 @@
     const R = len + bh / 2;
     return { theta, dtheta, len, R, x: cx + R * Math.sin(theta), y: jibY + R * Math.cos(theta) };
   };
-  // Horizontal sway of block i: the top moves most, the base stays put
-  const swayAt = (i, n = blocks.length) => Math.sin(t * 1.4) * amp * Math.pow((i + 1) / Math.max(1, n), 1.5);
+  // The tower is a damped spring hinged at the frame. A low tower is stiff; it loosens as it grows,
+  // so a single screen on the frame never wobbles.
+  const flex = (n = blocks.length) => Math.max(0, Math.min(1, (n - 1) / 4));
+  const angle = (n = blocks.length) => tilt.a * flex(n);
+  const swayAt = (i, n = blocks.length) => Math.sin(angle(n)) * (i + 0.5) * bh;
+  const comOffset = () => (blocks.length ? blocks.reduce((s, b) => s + b.x, 0) / blocks.length - cx : 0);
+  const MAX_TILT = 0.17;
   const surface = () => groundY - blocks.length * bh;
 
   const release = (forced) => {
@@ -132,19 +138,20 @@
     }
     const perfect = Math.abs(dx) <= bw * 0.06;
     const x = perfect ? (n ? blocks[n - 1].x : cx) : fall.x - swayAt(n, n + 1);
-    blocks.push({ k: fall.k, name: fall.name, x, r: perfect ? 0 : Math.max(-0.3, Math.min(0.3, fall.rot)), rv: 0, sq: 0.84, sqv: 0 });
-    base.v += 2.2 + Math.abs(fall.vy) * 0.2;
+    blocks.push({ k: fall.k, name: fall.name, x, r: perfect ? 0 : Math.max(-0.12, Math.min(0.12, fall.rot * 0.5)), rv: 0, sq: 0.86, sqv: 0 });
+    base.v += 1.6 + Math.abs(fall.vy) * 0.12;
     if (perfect) {
-      amp *= 0.55;
+      tilt.v *= 0.35;
       burst(topX, y - bh / 2, C.comp);
       pill(kit.t('tower_perfect'), topX, y - bh * 1.5, C.comp);
     } else {
-      amp += (Math.abs(dx) / bw) * bw * 0.5;
+      // An off-centre landing pushes the tower towards that side; the push grows with height
+      tilt.v += (dx / bw) * 0.0045 * (1 + blocks.length * 0.12) + fall.vx * 0.0004;
     }
     fall = null;
-    const com = blocks.reduce((s, b) => s + b.x, 0) / blocks.length - cx;
-    if (Math.abs(com) > bw * 0.42 || amp > bw * 0.66) {
-      const dir = Math.sign(com || swayAt(blocks.length - 1) || 1);
+    const com = comOffset();
+    if (Math.abs(com) > bw * 0.45) {
+      const dir = Math.sign(com || 1);
       blocks.forEach((b, i) => debris.push({ k: b.k, name: b.name, x: b.x + swayAt(i), y: groundY - (i + 0.5) * bh, vx: dir * (0.6 + i * 0.35) + (Math.random() - 0.5), vy: -Math.random() * 2, rot: 0, av: dir * (0.01 + i * 0.006) }));
       blocks = [];
       endRun('tower_lose_fall');
@@ -290,7 +297,22 @@
   kit.loop((dt) => {
     if (!blocks) return;
     t += dt / 60;
-    amp *= Math.pow(0.9985, dt);
+    if (state === 'play') {
+      // Spring back towards a lean set by where the weight is; taller towers are softer and slower
+      const n = blocks.length;
+      const lean = Math.max(-MAX_TILT, Math.min(MAX_TILT, (comOffset() / bw) * 0.12));
+      const k = 0.0075 / (1 + n * 0.12);
+      tilt.v += (-(tilt.a - lean) * k - tilt.v * 0.03) * dt;
+      tilt.a += tilt.v * dt;
+      if (n >= 3 && Math.abs(angle()) > MAX_TILT) {
+        const dir = Math.sign(tilt.a);
+        blocks.forEach((b, i) => debris.push({ k: b.k, name: b.name, x: b.x + swayAt(i), y: groundY - (i + 0.5) * bh, vx: dir * (0.5 + i * 0.3), vy: -Math.random() * 1.5, rot: angle(), av: dir * (0.008 + i * 0.005) }));
+        blocks = [];
+        tilt.a = 0;
+        tilt.v = 0;
+        endRun('tower_lose_fall');
+      }
+    }
     if (hang) hang.drop = Math.min(1, hang.drop + 0.035 * dt);
     runDemo(dt);
     blocks.forEach((b) => { spring(b, 'sq', 'sqv', 1, 0.3, 0.6, dt); spring(b, 'r', 'rv', 0, 0.2, 0.7, dt); });
@@ -364,12 +386,11 @@
 
     // The tower
     const n = blocks.length;
-    const danger = amp / (bw * 0.66);
+    const danger = Math.abs(angle()) / MAX_TILT;
     blocks.forEach((b, i) => {
       const y = groundY - (i + 0.5) * bh + cam + base.dip * ((i + 1) / Math.max(1, n));
       if (y < -bh || y > H + bh) return;
-      const slope = (Math.cos(t * 1.4) * amp * 1.5) / Math.max(1, n * bh * 3);
-      draw(b, b.x + swayAt(i), y, b.r + slope, { sq: b.sq, lift: i === n - 1 ? 8 : 3, danger: i === n - 1 && danger > 0.7 });
+      draw(b, b.x + swayAt(i), y + (1 - Math.cos(angle())) * (i + 0.5) * bh, b.r + angle(), { sq: b.sq, lift: i === n - 1 ? 8 : 3, danger: i === n - 1 && danger > 0.7 });
     });
 
     // Crane rope and the swinging screen
