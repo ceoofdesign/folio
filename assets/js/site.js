@@ -84,25 +84,43 @@
     const mine = () => ({ name: store.get('towerName') || '', company: store.get('towerCompany') || '' });
     const localRuns = () => { try { return JSON.parse(store.get('towerRuns') || '[]'); } catch (e) { return []; } };
     const sortRuns = (list) => list.slice().sort((a, b) => b.score - a.score);
-    let cache = null;
-    const fetchBoard = (fresh) => {
-      if (!boardUrl) return Promise.resolve({ local: true, board: sortRuns(localRuns()) });
-      if (!fresh && cache && Date.now() - cache.at < 30000) return Promise.resolve(cache.data);
-      return fetch(boardUrl).then((r) => r.json()).then((data) => {
-        if (!data || !data.ok) throw new Error('board');
-        cache = { at: Date.now(), data };
-        return data;
-      });
+    // The web app takes a second or more to answer, so the last board seen is kept on the device:
+    // it shows at once and is refreshed in the background
+    const remember = (data) => { store.set('towerBoard', JSON.stringify({ total: data.total, board: data.board })); return data; };
+    const recalled = () => {
+      if (!boardUrl) return { local: true, board: sortRuns(localRuns()) };
+      try { return JSON.parse(store.get('towerBoard') || 'null'); } catch (e) { return null; }
+    };
+    let pending = null;
+    const fetchBoard = () => {
+      if (!boardUrl) return Promise.resolve(recalled());
+      if (!pending) {
+        pending = fetch(boardUrl).then((r) => r.json()).then((data) => {
+          if (!data || !data.ok) throw new Error('board');
+          return remember(data);
+        }).finally(() => { setTimeout(() => { pending = null; }, 10000); });
+      }
+      return pending;
     };
     const postRun = (run) => {
       if (!boardUrl) return Promise.reject(new Error('local'));
       // A plain text body keeps this a simple request, so the browser sends it without a preflight
       return fetch(boardUrl, { method: 'POST', body: JSON.stringify(run) }).then((r) => r.json()).then((data) => {
         if (!data || !data.ok) throw new Error('board');
-        cache = { at: Date.now(), data };
-        return data;
+        return remember(data);
       });
     };
+    // The board as it will look with this run in it, so the result shows before the server answers
+    const withRun = (board, me, score) => {
+      const same = (r) => r.name.toLowerCase() === me.name.toLowerCase() && (r.company || '').toLowerCase() === (me.company || '').toLowerCase();
+      const old = board.find(same);
+      const rest = board.filter((r) => !same(r));
+      const entry = { name: me.name, company: me.company, score: Math.max(score, old ? old.score : 0) };
+      const list = rest.concat(entry).sort((a, b) => b.score - a.score);
+      return { list, rank: list.indexOf(entry) + 1, total: board.length + (old ? 0 : 1) };
+    };
+    // Warm the board up while the visitor reads the first screen
+    if (boardUrl) setTimeout(() => fetchBoard().catch(() => { /* tried again on demand */ }), 2500);
     const keepLocal = (run) => {
       const list = sortRuns(localRuns().concat({ name: run.name, company: run.company, score: run.score, date: new Date().toISOString().slice(0, 10) })).slice(0, 20);
       store.set('towerRuns', JSON.stringify(list));
@@ -143,16 +161,19 @@
       if (!dialog || !dialog.showModal) return;
       const list = $('[data-records-list]', dialog);
       const note = $('[data-records-note]', dialog);
-      list.textContent = '';
-      note.textContent = say('board_loading');
-      $('[data-records-mail]', dialog).href = mailto(null);
-      dialog.showModal();
-      fetchBoard(true).then((data) => {
+      const render = (data) => {
         const board = data.board || [];
         note.textContent = !board.length ? say('board_empty') : data.local ? say('board_local') : '';
         note.hidden = !note.textContent;
         rowsInto(list, board, mine(), 50);
-      }).catch(() => { note.hidden = false; note.textContent = say('board_error'); });
+      };
+      const seen = recalled();
+      list.textContent = '';
+      if (seen) render(seen);
+      else { note.hidden = false; note.textContent = say('board_loading'); }
+      $('[data-records-mail]', dialog).href = mailto(null);
+      dialog.showModal();
+      fetchBoard().then(render).catch(() => { if (!seen) { note.hidden = false; note.textContent = say('board_error'); } });
     };
     $$('[data-records-open]').forEach((b) => b.addEventListener('click', openRecords));
     if (dialog) {
@@ -176,7 +197,6 @@
     let run = null;
     let again = null;
     let overTimer = 0;
-    const submit = $('button[type="submit"]', ov.form);
     const showSaved = (board, me, message) => {
       ov.form.hidden = true;
       ov.rank.hidden = true;
@@ -194,16 +214,20 @@
       if (!me.name) { ov.form.elements.name.focus(); return; }
       store.set('towerName', me.name);
       store.set('towerCompany', me.company);
-      submit.disabled = true;
-      submit.textContent = say('saving');
       const entry = { name: me.name, company: me.company, score: run.score, seconds: run.seconds, lang };
+      if (!boardUrl) { showSaved(keepLocal(entry), me, say('saved_local')); return; }
+      // Show the place on the board right away; the server's answer only confirms or corrects it
+      const thisRun = run;
+      const guess = withRun((recalled() || { board: [] }).board || [], me, run.score);
+      showSaved(guess.list, me, say('saving_rank', { n: guess.rank, m: guess.total }));
       postRun(entry).then((res) => {
+        if (run !== thisRun) return;
         const board = res.board || [];
         showSaved(board, me, say('saved', { n: res.rank || board.findIndex((r) => isMine(r, me)) + 1, m: res.total || board.length }));
-      }).catch((err) => {
-        const list = keepLocal(entry);
-        showSaved(list, me, err.message === 'local' ? say('saved_local') : say('error'));
-      }).finally(() => { submit.disabled = false; submit.textContent = say('save'); });
+      }).catch(() => {
+        keepLocal(entry);
+        if (run === thisRun) ov.status.textContent = say('error');
+      });
     });
     $$('[data-again]', stage).forEach((b) => b.addEventListener('click', () => { if (again) again(); }));
 
@@ -225,11 +249,13 @@
         ov.box.hidden = false;
         if (document.activeElement === canvas && r.score > 0) ov.form.elements.name.focus({ preventScroll: true });
         if (r.score > 0 && boardUrl) {
-          fetchBoard(false).then((data) => {
-            if (run !== r) return;
+          const place = (data) => {
+            if (run !== r || !data) return;
             const ahead = (data.board || []).filter((x) => x.score > r.score).length;
             if (ahead < 50) { ov.rank.textContent = say('rank', { n: ahead + 1 }); ov.rank.hidden = !ov.saved.hidden; }
-          }).catch(() => { /* the panel works without it */ });
+          };
+          place(recalled());
+          fetchBoard().then(place).catch(() => { /* the panel works without it */ });
         }
       }, 450);
     };

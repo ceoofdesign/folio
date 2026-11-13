@@ -38,14 +38,17 @@ function same_(a, b) {
   return String(a).replace(/^'/, '').toLowerCase() === String(b).replace(/^'/, '').toLowerCase();
 }
 
-function rows_() {
-  const sheet = sheet_();
+function rows_(sheet) {
   const count = sheet.getLastRow() - 1;
   if (count < 1) return [];
   return sheet.getRange(2, 1, count, 7).getValues()
     .map((r, i) => ({ row: i + 2, date: r[0], name: String(r[1]), company: String(r[2] || ''), score: Number(r[3]) || 0, hidden: r[6] }))
     .filter((r) => r.name && !r.hidden)
-    .sort((a, b) => b.score - a.score || new Date(a.date) - new Date(b.date));
+    .sort(order_);
+}
+
+function order_(a, b) {
+  return b.score - a.score || new Date(a.date) - new Date(b.date);
 }
 
 function public_(list) {
@@ -58,12 +61,24 @@ function public_(list) {
 }
 
 function out_(data) {
-  return ContentService.createTextOutput(JSON.stringify(data)).setMimeType(ContentService.MimeType.JSON);
+  return ContentService.createTextOutput(typeof data === 'string' ? data : JSON.stringify(data)).setMimeType(ContentService.MimeType.JSON);
+}
+
+// The board is kept in the script cache, so reading it doesn't open the spreadsheet.
+// Edits made by hand in the sheet (hiding or deleting a row) show up within CACHE_SECONDS.
+const CACHE_SECONDS = 300;
+
+function board_(list) {
+  return JSON.stringify({ ok: true, total: list.length, board: public_(list) });
 }
 
 function doGet() {
-  const list = rows_();
-  return out_({ ok: true, total: list.length, board: public_(list) });
+  const cache = CacheService.getScriptCache();
+  const hit = cache.get('board');
+  if (hit) return out_(hit);
+  const json = board_(rows_(sheet_()));
+  cache.put('board', json, CACHE_SECONDS);
+  return out_(json);
 }
 
 function doPost(e) {
@@ -84,18 +99,26 @@ function doPost(e) {
     if (recent > 30) return out_({ ok: false, error: 'busy' });
     cache.put('posts', String(recent + 1), 60);
 
-    // One line per person and company: a better run replaces the old one
+    // One line per person and company: a better run replaces the old one.
+    // The sheet is read once and the board is updated in memory.
     const sheet = sheet_();
-    const existing = rows_().find((r) => same_(r.name, name) && same_(r.company, company));
-    if (existing) {
-      if (score > existing.score) sheet.getRange(existing.row, 1, 1, 6).setValues([[new Date(), name, company, score, lang, seconds]]);
+    const list = rows_(sheet);
+    const now = new Date();
+    let mine = list.find((r) => same_(r.name, name) && same_(r.company, company));
+    if (mine) {
+      if (score > mine.score) {
+        sheet.getRange(mine.row, 1, 1, 6).setValues([[now, name, company, score, lang, seconds]]);
+        Object.assign(mine, { date: now, score });
+      }
     } else {
-      sheet.appendRow([new Date(), name, company, score, lang, seconds, '']);
+      sheet.appendRow([now, name, company, score, lang, seconds, '']);
+      mine = { date: now, name, company, score };
+      list.push(mine);
     }
-
-    const list = rows_();
-    const rank = list.findIndex((r) => same_(r.name, name) && same_(r.company, company)) + 1;
-    return out_({ ok: true, rank, total: list.length, board: public_(list) });
+    list.sort(order_);
+    const json = board_(list);
+    cache.put('board', json, CACHE_SECONDS);
+    return out_(Object.assign(JSON.parse(json), { rank: list.indexOf(mine) + 1 }));
   } catch (err) {
     return out_({ ok: false, error: 'server' });
   } finally {
