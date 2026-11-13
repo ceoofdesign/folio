@@ -75,6 +75,7 @@
     };
     let zone = { x: 0, y: 0, w: 0, h: 0 };
     let lastN = 0;
+    let dotTile = null;
 
     /* Records: a Google Sheet behind a small web app (see tools/leaderboard.gs). Until its address is
        set in _config.yml, runs are kept on this device only. */
@@ -340,10 +341,23 @@
         return ctx;
       },
       // A faint dot grid across the whole first screen, like an empty Figma canvas
+      // Drawn from one cached 20 px tile instead of thousands of tiny rectangles every frame
       dots: (ctx, W, H, C, offY = 0) => {
-        ctx.fillStyle = C.line;
+        if (!dotTile || dotTile.color !== C.line) {
+          const tile = document.createElement('canvas');
+          tile.width = 20;
+          tile.height = 20;
+          const t = tile.getContext('2d');
+          t.fillStyle = C.line;
+          t.fillRect(10, 0, 1, 1);
+          dotTile = { color: C.line, pattern: ctx.createPattern(tile, 'repeat') };
+        }
         const o = ((offY % 20) + 20) % 20;
-        for (let y = o; y < H; y += 20) for (let x = 10; x < W; x += 20) ctx.fillRect(x, y, 1, 1);
+        ctx.save();
+        ctx.translate(0, o);
+        ctx.fillStyle = dotTile.pattern;
+        ctx.fillRect(0, -o, W, H);
+        ctx.restore();
       },
       // Runs the frame callback only while the hero is on screen and the tab is visible
       loop: (fn) => {
@@ -371,7 +385,9 @@
     const script = document.createElement('script');
     script.src = `${stage.dataset.base}hero-tower.js`;
     script.onload = () => window.HeroTower && window.HeroTower(kit);
-    document.head.append(script);
+    // Start once the fonts are in, so the text doesn't reflow and the play zone doesn't jump after the first frames
+    const fontsIn = document.fonts ? Promise.race([document.fonts.ready, new Promise((r) => setTimeout(r, 1500))]) : Promise.resolve();
+    fontsIn.then(() => document.head.append(script));
   }
 
   /* Image preview that follows the cursor over index rows */

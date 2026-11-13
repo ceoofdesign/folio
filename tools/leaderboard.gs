@@ -13,9 +13,12 @@
 const SHEET_NAME = 'Scores';
 const TOP = 50;
 const MAX_SCORE = 300;
+// For a standalone script (made at script.new rather than from the sheet), put the sheet's ID here:
+// the part of its address between /d/ and /edit
+const SPREADSHEET_ID = '';
 
 function sheet_() {
-  const book = SpreadsheetApp.getActiveSpreadsheet();
+  const book = SPREADSHEET_ID ? SpreadsheetApp.openById(SPREADSHEET_ID) : SpreadsheetApp.getActiveSpreadsheet();
   let sheet = book.getSheetByName(SHEET_NAME);
   if (!sheet) {
     sheet = book.insertSheet(SHEET_NAME);
@@ -98,4 +101,9 @@ function doPost(e) {
   } finally {
     lock.releaseLock();
   }
+}
+
+// Run once from the editor to create the sheet and grant access
+function setup() {
+  sheet_();
 }
