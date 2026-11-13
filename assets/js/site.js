@@ -251,7 +251,8 @@
         if (r.score > 0 && boardUrl) {
           const place = (data) => {
             if (run !== r || !data) return;
-            const ahead = (data.board || []).filter((x) => x.score > r.score).length;
+            // An equal score that is already on the board stays above, as it does on the server
+            const ahead = (data.board || []).filter((x) => x.score >= r.score && !isMine(x, me)).length;
             if (ahead < 50) { ov.rank.textContent = say('rank', { n: ahead + 1 }); ov.rank.hidden = !ov.saved.hidden; }
           };
           place(recalled());
