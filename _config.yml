@@ -44,5 +44,6 @@ exclude:
 ja_published: true
 
 # Адрес веб-приложения Google Apps Script для общей таблицы рекордов игры (см. tools/leaderboard.gs и README).
-# Пока пусто, рекорды сохраняются только в браузере игрока.
-leaderboard_url: ""
+# Таблица: Google Диск → «Tower records», лист Scores. Скрипт: «Tower records board» на script.google.com.
+# Если оставить пусто, рекорды сохраняются только в браузере игрока.
+leaderboard_url: "https://script.google.com/macros/s/AKfycbzi3pb-4H_FgZq6LMyAPumvAkqyJoAc9E7cRy6XN3J3an_YEb-fanEqP0qMMgO1ifml/exec"
