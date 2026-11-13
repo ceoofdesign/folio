@@ -1,6 +1,6 @@
 <footer class="end" id="contact">
   <p class="label">{{ t.write }}</p>
-  <a class="end__mail" href="mailto:{{ profile.email }}">{{ profile.email }}</a>
+  <a class="end__mail" href="mailto:{{ profile.email }}" data-subject="{{ t.games.mail_subject | escape }}">{{ profile.email }}</a>
   <div class="end__row">
     <button type="button" class="link" data-copy="{{ profile.email }}" data-copied="{{ t.copied }}">{{ t.copy }}</button>
     <a class="link" href="{{ profile.linkedin }}" rel="me">LinkedIn</a>

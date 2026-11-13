@@ -23,16 +23,27 @@
   /* Colour theme, switched without every colour transition firing at once */
   const themeButton = $('[data-theme-toggle]');
   if (themeButton) {
+    const isDark = () => (root.dataset.theme ? root.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches);
+    // The pressed state for screen readers, and the browser bar on phones in the same colour as the page
+    const mark = () => {
+      themeButton.setAttribute('aria-pressed', String(isDark()));
+      $$('meta[name="theme-color"]').forEach((m) => { m.content = isDark() ? '#121315' : '#eff0ec'; });
+    };
+    mark();
+    matchMedia('(prefers-color-scheme: dark)').addEventListener('change', mark);
     themeButton.addEventListener('click', () => {
-      const dark = root.dataset.theme ? root.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
-      const next = dark ? 'light' : 'dark';
+      const next = isDark() ? 'light' : 'dark';
       root.classList.add('no-trans');
       root.dataset.theme = next;
       void root.offsetWidth;
       requestAnimationFrame(() => root.classList.remove('no-trans'));
       store.set('theme', next);
+      mark();
     });
   }
+
+  /* Mail links with a subject line. Encoded here, so spaces never turn into "+" in the mail app */
+  $$('a[data-subject]').forEach((a) => { a.href = `${a.href.split('?')[0]}?subject=${encodeURIComponent(a.dataset.subject)}`; });
 
   /* Copy the email address */
   $$('[data-copy]').forEach((button) => {

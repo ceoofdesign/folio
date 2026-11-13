@@ -7,8 +7,13 @@ en:
   email: "Email"
   switch: "日本語"
   switch_label: "日本語版を見る"
-  theme: "Switch colour theme"
+  theme: "Dark theme"
   index: "Index of work"
+  nav_label: "Main"
+  lang_label: "Language"
+  hero_open: "Open to product design roles in Japan"
+  hero_write: "Write to me"
+  hero_work: "See the work"
   cols: ["No.", "Product", "Work", "Status", "Period", "Scale"]
   state:
     now: "Now"
@@ -69,7 +74,6 @@ en:
     mail_body_named: "Hi Yar,\n\nThis is {who}. I scored {n} in your tower game and would like to talk about a product designer role.\n\n"
     board_title: "Records"
     board_all: "All records"
-    board_lede: "The tallest towers, with the names and companies of the people who built them."
     board_cols: ["No.", "Name", "Company", "Score"]
     board_empty: "No records yet. Yours could be the first."
     board_loading: "Loading…"
@@ -84,8 +88,13 @@ ja:
   email: "メール"
   switch: "EN"
   switch_label: "View in English"
-  theme: "表示テーマを切り替える"
+  theme: "ダークテーマ"
   index: "実績一覧"
+  nav_label: "メインメニュー"
+  lang_label: "言語"
+  hero_open: "日本でのプロダクトデザイナー職を探しています"
+  hero_write: "連絡する"
+  hero_work: "実績を見る"
   cols: ["No.", "プロダクト", "担当", "ステータス", "期間", "規模"]
   state:
     now: "担当中"
@@ -146,7 +155,6 @@ ja:
     mail_body_named: "ヤルさん\n\n{who}です。タワーゲームで{n}点を取りました。プロダクトデザイナーのポジションについてお話しできればと思います。\n\n"
     board_title: "ランキング"
     board_all: "ランキングを見る"
-    board_lede: "いちばん高いタワーと、それを積んだ人の名前と会社です。"
     board_cols: ["順位", "お名前", "会社", "スコア"]
     board_empty: "まだ記録はありません。最初の記録をどうぞ。"
     board_loading: "読み込み中…"

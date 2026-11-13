@@ -2,12 +2,12 @@
 <header class="top">
   <a class="top__name" href="{{ home | relative_url }}">{{ p.name }}</a>
   <p class="top__clock"><span data-clock data-tz="{{ profile.timezone }}" data-lang="{{ lang }}">{{ p.city }}</span></p>
-  <nav class="top__nav" aria-label="Main">
+  <nav class="top__nav" aria-label="{{ t.nav_label }}">
     <a href="{{ home | append: '#work' | relative_url }}">{{ t.work }}</a>
     <a href="{{ home | append: '#about' | relative_url }}">{{ t.about }}</a>
-    <a href="mailto:{{ profile.email }}">{{ t.email }}</a>
+    <a href="mailto:{{ profile.email }}" data-subject="{{ t.games.mail_subject | escape }}">{{ t.email }}</a>
     {% if site.ja_published != false and page.no_alternate != true %}
-    <span class="lang" role="group" aria-label="Language">
+    <span class="lang" role="group" aria-label="{{ t.lang_label }}">
       {% if lang == "en" %}
       <span class="lang__item" aria-current="true">EN</span>
       <a class="lang__item" href="{{ alt_url | relative_url }}" hreflang="ja" lang="ja" aria-label="{{ t.switch_label }}">日本語</a>
@@ -17,7 +17,7 @@
       {% endif %}
     </span>
     {% endif %}
-    <button type="button" class="top__theme" data-theme-toggle aria-label="{{ t.theme }}"><span aria-hidden="true"></span></button>
+    <button type="button" class="top__theme" data-theme-toggle aria-label="{{ t.theme }}" aria-pressed="false"><span aria-hidden="true"></span></button>
   </nav>
   <div class="top__progress" aria-hidden="true"></div>
 </header>

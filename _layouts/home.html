@@ -14,6 +14,13 @@ layout: default
     <dl class="hero__facts">
       {% for f in p.facts %}<div><dt>{{ f.label }}</dt><dd>{{ f.value }}</dd></div>{% endfor %}
     </dl>
+    <div class="hero__cta">
+      <p class="hero__open"><span aria-hidden="true"></span>{{ t.hero_open }}</p>
+      <div class="hero__actions">
+        <a class="btn btn--main" href="mailto:{{ profile.email }}" data-subject="{{ g.mail_subject | escape }}">{{ t.hero_write }}</a>
+        <a class="btn" href="#work">{{ t.hero_work }}</a>
+      </div>
+    </div>
   </div>
   <div class="stage" data-stage data-strings="{{ g | jsonify | escape }}" data-base="{{ '/assets/js/' | relative_url }}" data-board="{{ site.leaderboard_url }}" data-email="{{ profile.email }}" hidden>
     <canvas class="stage__canvas" tabindex="0"></canvas>
@@ -58,7 +65,6 @@ layout: default
     <h2 class="records__title" id="records-title">{{ g.board_title }}</h2>
     <button type="button" class="link" data-records-close>{{ t.close }}</button>
   </div>
-  <p class="records__lede">{{ g.board_lede }}</p>
   <div class="ranks__head" aria-hidden="true">{% for col in g.board_cols %}<span>{{ col }}</span>{% endfor %}</div>
   <ol class="ranks" data-records-list></ol>
   <p class="records__note" data-records-note></p>
@@ -93,7 +99,8 @@ layout: default
   </ol>
 </section>
 
-<section class="work" id="work" aria-label="{{ t.selected }}">
+<section class="work" id="work" aria-labelledby="work-title">
+  <h2 class="label work__title" id="work-title">{{ t.selected }}</h2>
   {% assign n = 0 %}
   {% for c in source %}{% if c.kind == "product" %}
   {% assign n = n | plus: 1 %}
@@ -148,12 +155,12 @@ layout: default
       <a class="line" href="{{ item.link }}" rel="noopener">
         {% if lang == "ja" %}
         <span class="line__type">{{ item.type_ja | default: item.type }}</span>
-        <span class="line__title">{{ item.title_ja | default: item.title }}</span>
+        <span class="line__title">{{ item.title_ja | default: item.title }} <span class="line__ext" aria-hidden="true">↗</span></span>
         <span class="line__detail">{{ item.detail_ja | default: item.detail }}</span>
         <span class="line__date">{{ item.date_ja | default: item.date }}</span>
         {% else %}
         <span class="line__type">{{ item.type }}</span>
-        <span class="line__title">{{ item.title }}</span>
+        <span class="line__title">{{ item.title }} <span class="line__ext" aria-hidden="true">↗</span></span>
         <span class="line__detail">{{ item.detail }}</span>
         <span class="line__date">{{ item.date }}</span>
         {% endif %}

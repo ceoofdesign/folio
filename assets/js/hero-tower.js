@@ -179,7 +179,31 @@ window.HeroTower = (kit) => {
   });
   kit.onAgain(() => { demo = null; touched = true; reset(); });
   kit.onTheme(() => { C = kit.colors(); });
-  const ctx = kit.fit((w, h) => { const first = !W; W = w; H = h; measure(); if (first) reset(); });
+  // Camera keeps the top of the tower a steady distance below the crane
+  const camTarget = () => Math.max(-(groundY - Z.y - Z.h * 0.5), jibY + rope + bh * 2.4 + Z.h * 0.12 - surface());
+
+  // Positions are kept in canvas pixels, so a resize carries everything over to the new centre and scale:
+  // the tower stays standing where it was, only bigger or smaller
+  const ctx = kit.fit((w, h) => {
+    const first = !W;
+    const was = first ? null : { cx, groundY, bw };
+    W = w;
+    H = h;
+    measure();
+    if (first) { reset(); return; }
+    const k = bw / was.bw;
+    const mx = (x) => cx + (x - was.cx) * k;
+    const my = (y) => groundY + (y - was.groundY) * k;
+    blocks.forEach((b) => { b.x = mx(b.x); });
+    debris.forEach((d) => { d.x = mx(d.x); d.y = my(d.y); });
+    fx.forEach((f) => { if (f.kind !== 'tap') { f.x = mx(f.x); f.y = my(f.y); } });
+    if (fall) {
+      fall.x = mx(fall.x);
+      fall.y = my(fall.y);
+      if (fall.pivot !== undefined) fall.pivot = mx(fall.pivot);
+    }
+    cam = camTarget();
+  });
 
   // The first move is played by Yar's cursor, once
   setTimeout(() => {
@@ -352,10 +376,7 @@ window.HeroTower = (kit) => {
     blocks.forEach((b) => { spring(b, 'sq', 'sqv', 1, 0.3, 0.6, dt); spring(b, 'r', 'rv', 0, 0.2, 0.7, dt); });
     spring(base, 'dip', 'v', 0, 0.25, 0.7, dt);
 
-    // Camera keeps the top of the tower a steady distance below the crane
-    const want = jibY + rope + bh * 2.4 + Z.h * 0.12;
-    const target = Math.max(-(groundY - Z.y - Z.h * 0.5), want - surface());
-    cam += (target - cam) * Math.min(1, 0.05 * dt);
+    cam += (camTarget() - cam) * Math.min(1, 0.05 * dt);
 
     if (fall) {
       if (fall.mode === 'fall') {
