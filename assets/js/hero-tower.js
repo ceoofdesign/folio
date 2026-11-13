@@ -47,7 +47,7 @@ window.HeroTower = (kit) => {
     bw = Math.round(Math.max(104, Math.min(Z.w * (narrow ? 0.36 : 0.26), 156)));
     bh = Math.round(bw * 0.4);
     cx = Z.x + Z.w / 2;
-    groundY = Z.y + Z.h - 12;            // the plate rests on the line under the hero
+    groundY = Z.y + Z.h - 40;
     jibY = Z.y + kit.top() + 30;
     rope = Math.max(bh * 2.2, Math.min(Z.h * 0.2, 190));
   };
@@ -354,7 +354,7 @@ window.HeroTower = (kit) => {
 
     // Camera keeps the top of the tower a steady distance below the crane
     const want = jibY + rope + bh * 2.4 + Z.h * 0.12;
-    const target = Math.max(0, want - surface());
+    const target = Math.max(-(groundY - Z.y - Z.h * 0.5), want - surface());
     cam += (target - cam) * Math.min(1, 0.05 * dt);
 
     if (fall) {
